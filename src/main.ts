@@ -105,6 +105,7 @@ class Demo {
     window.addEventListener("keydown", (e) => {
       if (this.isGenerating) return;
 
+      // Only handle specific demo keys, let engine handle movement keys
       switch (e.key.toLowerCase()) {
         case "q":
           // Generate random sphere
@@ -135,12 +136,14 @@ class Demo {
           }
           break;
       }
+
+      // Don't prevent default for movement keys - let engine handle them
     });
 
-    // Handle window resize
-    window.addEventListener("resize", () => {
-      this.engine.resize();
-    });
+    // Handle window resize - engine already handles this, but we can add demo-specific logic here if needed
+    // window.addEventListener("resize", () => {
+    //   this.engine.resize();
+    // });
   }
 
   /**
