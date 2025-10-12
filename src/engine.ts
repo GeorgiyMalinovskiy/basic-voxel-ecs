@@ -1,4 +1,4 @@
-import { World, Entity, Component, System, Query } from "./ecs";
+import { World } from "./ecs";
 import { WebGPURenderer } from "./renderer/webgpu";
 import { Camera } from "./renderer/camera";
 import { VoxelRenderer } from "./renderer/voxel-renderer";
@@ -35,6 +35,7 @@ export class VoxelEngine {
   private mousePos = { x: 0, y: 0 };
   private mouseDelta = { x: 0, y: 0 };
   private isMouseLocked = false;
+  private disableEngineInput = false;
 
   constructor(config: EngineConfig) {
     this.canvas = config.canvas;
@@ -146,6 +147,7 @@ export class VoxelEngine {
    * Handle input
    */
   private handleInput(deltaTime: number): void {
+    if (this.disableEngineInput) return;
     const moveSpeed = 50 * deltaTime; // units per second
     const lookSpeed = 2 * deltaTime; // radians per second
 
@@ -394,5 +396,33 @@ export class VoxelEngine {
         }
       }
     }
+  }
+
+  /**
+   * Get the world size from the octree
+   */
+  getWorldSize(): number {
+    return this.octree.getWorldSize();
+  }
+
+  /**
+   * Get the canvas element
+   */
+  getCanvas(): HTMLCanvasElement {
+    return this.canvas;
+  }
+
+  /**
+   * Disable engine input handling (for ECS input systems)
+   */
+  disableInput(): void {
+    this.disableEngineInput = true;
+  }
+
+  /**
+   * Enable engine input handling
+   */
+  enableInput(): void {
+    this.disableEngineInput = false;
   }
 }

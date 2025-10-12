@@ -1,12 +1,16 @@
 import { VoxelEngine } from "./engine";
+import { ALL_SCENES, Scene, ECSDemoScene } from "./scenes";
 
 /**
- * Demo scene setup
+ * Demo scene setup with scene selector
  */
 class Demo {
   private engine: VoxelEngine;
   private infoElement: HTMLElement;
   private isGenerating = false;
+  private currentSceneIndex = 0;
+  private currentScene: Scene;
+  private ecsScene: ECSDemoScene | null = null;
 
   constructor() {
     const canvas = document.getElementById("canvas") as HTMLCanvasElement;
@@ -30,6 +34,9 @@ class Demo {
       backgroundColor: { r: 0.2, g: 0.3, b: 0.4, a: 1.0 },
     });
 
+    // Initialize current scene
+    this.currentScene = ALL_SCENES[this.currentSceneIndex];
+
     this.setupEventListeners();
   }
 
@@ -42,7 +49,7 @@ class Demo {
       await this.engine.initialize();
 
       // Generate initial scene
-      this.generateInitialScene();
+      this.loadScene(this.currentSceneIndex);
 
       // Start the engine
       this.engine.start();
@@ -76,23 +83,53 @@ class Demo {
   }
 
   /**
-   * Generate the initial scene
+   * Load a scene by index
    */
-  private generateInitialScene(): void {
-    console.log("Generating initial scene...");
+  private loadScene(index: number): void {
+    if (index < 0 || index >= ALL_SCENES.length) {
+      console.error(`Invalid scene index: ${index}`);
+      return;
+    }
 
-    // Generate very small terrain for better performance
-    this.engine.generateTerrain(16, 8);
+    this.currentSceneIndex = index;
+    this.currentScene = ALL_SCENES[index];
 
-    // Add some smaller spheres within the 16x16 world
-    this.engine.generateSphere({ x: 8, y: 12, z: 8 }, 2, 1);
-    this.engine.generateSphere({ x: 12, y: 10, z: 5 }, 2, 2);
-    this.engine.generateSphere({ x: 5, y: 10, z: 12 }, 2, 3);
+    console.log(`Loading scene: ${this.currentScene.name}`);
+    console.log(`Description: ${this.currentScene.description}`);
 
-    // Add a smaller box structure within the 16x16 world
-    this.engine.generateBox({ x: 10, y: 9, z: 10 }, { x: 12, y: 11, z: 12 }, 1);
+    // Clear existing voxels
+    this.engine.clearVoxels();
 
-    console.log("Initial scene generated");
+    // Generate the new scene
+    this.currentScene.generate(this.engine);
+
+    // Store reference to ECS scene for cleanup
+    if (this.currentScene instanceof ECSDemoScene) {
+      this.ecsScene = this.currentScene;
+    } else {
+      this.ecsScene = null;
+    }
+
+    console.log(`Scene loaded: ${this.currentScene.name}`);
+  }
+
+  /**
+   * Switch to next scene
+   */
+  private nextScene(): void {
+    const nextIndex = (this.currentSceneIndex + 1) % ALL_SCENES.length;
+    this.loadScene(nextIndex);
+  }
+
+  /**
+   * Switch to previous scene
+   */
+  private previousScene(): void {
+    const prevIndex =
+      this.currentSceneIndex === 0
+        ? ALL_SCENES.length - 1
+        : this.currentSceneIndex - 1;
+    this.loadScene(prevIndex);
   }
 
   /**
@@ -119,14 +156,24 @@ class Demo {
           break;
 
         case "g":
-          // Regenerate terrain
-          this.regenerateTerrain();
+          // Regenerate current scene
+          this.loadScene(this.currentSceneIndex);
           break;
 
         case "l":
           // Toggle logs
           showLogs = !showLogs;
           console.log(`Logs ${showLogs ? "enabled" : "disabled"}`);
+          break;
+
+        case "n":
+          // Next scene
+          this.nextScene();
+          break;
+
+        case "p":
+          // Previous scene
+          this.previousScene();
           break;
 
         case "escape":
@@ -200,18 +247,32 @@ class Demo {
     const camera = this.engine.getCamera();
     const position = camera.getPosition();
 
+    // Get ECS stats if available
+    let ecsStats = "";
+    if (this.ecsScene) {
+      const world = this.ecsScene.getWorld();
+      const systems = this.ecsScene.getSystems();
+      ecsStats = `<br/>ECS: ${world.getEntityCount()} entities | ${
+        systems.length
+      } systems`;
+    }
+
     this.infoElement.innerHTML = `
-      Voxel Terrain + Marching Cubes<br/>
+      <strong>${this.currentScene.name}</strong><br/>
+      ${this.currentScene.description}<br/>
+      <br/>
       Position: ${position[0].toFixed(1)}, ${position[1].toFixed(
       1
     )}, ${position[2].toFixed(1)}<br/>
       Entities: ${stats.entities} | Vertices: ${stats.vertices} | Triangles: ${
       stats.triangles
-    }<br/>
+    }${ecsStats}<br/>
+      Scene: ${this.currentSceneIndex + 1}/${ALL_SCENES.length}<br/>
       <br/>
-      Controls:<br/>
+      <strong>Controls:</strong><br/>
       WASD + Mouse = Move/Look | Space/Shift = Up/Down<br/>
-      C = Camera lock | Q = Add sphere | G = Regenerate | L = Logs
+      C = Camera lock | Q = Add sphere | G = Regenerate scene<br/>
+      N = Next scene | P = Previous scene | L = Logs
     `;
 
     // Update every 100ms
