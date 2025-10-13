@@ -23,10 +23,11 @@ export class WebGPURenderer {
     }
 
     // Get adapter
-    this.adapter = await navigator.gpu.requestAdapter();
-    if (!this.adapter) {
+    const adapter = await navigator.gpu.requestAdapter();
+    if (!adapter) {
       throw new Error("No appropriate GPUAdapter found");
     }
+    this.adapter = adapter;
 
     // Get device
     this.device = await this.adapter.requestDevice({
@@ -172,4 +173,3 @@ export class WebGPURenderer {
     return { width: this.canvas.width, height: this.canvas.height };
   }
 }
-

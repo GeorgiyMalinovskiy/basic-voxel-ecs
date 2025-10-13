@@ -1,6 +1,8 @@
-import { System, Query } from "../../ecs";
+import { System, Query, Entity } from "../../ecs";
 import { VoxelEngine } from "../../engine";
 import { vec3 } from "gl-matrix";
+import type { IPhysicsAdapter, PhysicsBodyOptions } from "../../physics";
+import { PhysicsAdapterFactory, PhysicsShape } from "../../physics";
 import {
   PositionComponent,
   VelocityComponent,
@@ -15,9 +17,12 @@ import {
 } from "./components";
 
 /**
- * Physics system - handles movement and physics
+ * Physics system - handles movement and physics using adapter pattern
  */
 export class PhysicsSystem extends System {
+  private physicsAdapter: IPhysicsAdapter;
+  private entityBodies: Map<string, string> = new Map(); // entityId -> bodyId
+
   constructor(private engine: VoxelEngine) {
     super();
     this.setQuery(
@@ -25,9 +30,26 @@ export class PhysicsSystem extends System {
         with: [PositionComponent, VelocityComponent, PhysicsComponent],
       })
     );
+
+    // Initialize physics adapter (can be easily switched)
+    this.physicsAdapter = PhysicsAdapterFactory.create("cannon", {
+      gravity: vec3.fromValues(0, -9.82, 0),
+      solverIterations: 20, // Increased for better collision detection
+      contactMaterial: {
+        friction: 0.3,
+        restitution: 0.3,
+      },
+    });
+
+    this.physicsAdapter.initialize();
+    this.setupTerrainCollision();
   }
 
   update(_deltaTime: number): void {
+    // Update physics simulation
+    this.physicsAdapter.update(_deltaTime);
+
+    // Sync physics bodies with ECS components
     const entities = this.getEntities();
 
     for (const entity of entities) {
@@ -37,40 +59,100 @@ export class PhysicsSystem extends System {
 
       if (!pos || !vel || !physics) continue;
 
-      // Apply gravity
-      if (physics.gravity) {
-        vel.y -= 9.8 * _deltaTime;
+      const entityId = entity.id.toString();
+      let bodyId = this.entityBodies.get(entityId);
+
+      // Create physics body if it doesn't exist
+      if (!bodyId) {
+        const newBodyId = this.createPhysicsBody(entity, pos, physics);
+        if (newBodyId) {
+          bodyId = newBodyId;
+          this.entityBodies.set(entityId, bodyId);
+        }
       }
 
-      // Apply friction
-      vel.x *= physics.friction;
-      vel.z *= physics.friction;
+      if (bodyId) {
+        // Update ECS components from physics body
+        const bodyPos = this.physicsAdapter.getBodyPosition(bodyId);
+        const bodyVel = this.physicsAdapter.getBodyVelocity(bodyId);
 
-      // Update position
-      pos.x += vel.x * _deltaTime;
-      pos.y += vel.y * _deltaTime;
-      pos.z += vel.z * _deltaTime;
+        pos.x = bodyPos[0];
+        pos.y = bodyPos[1];
+        pos.z = bodyPos[2];
 
-      // Terrain collision detection
-      const terrainHeight = this.getTerrainHeight(pos.x, pos.z);
-      if (pos.y <= terrainHeight) {
-        pos.y = terrainHeight;
-        vel.y *= -physics.bounce;
-        vel.x *= physics.friction;
-        vel.z *= physics.friction;
-      }
-
-      // Boundary collision
-      const worldSize = this.engine.getWorldSize();
-      if (pos.x < 0 || pos.x > worldSize) {
-        vel.x *= -physics.bounce;
-        pos.x = Math.max(0, Math.min(worldSize, pos.x));
-      }
-      if (pos.z < 0 || pos.z > worldSize) {
-        vel.z *= -physics.bounce;
-        pos.z = Math.max(0, Math.min(worldSize, pos.z));
+        vel.x = bodyVel[0];
+        vel.y = bodyVel[1];
+        vel.z = bodyVel[2];
       }
     }
+  }
+
+  private createPhysicsBody(
+    entity: Entity,
+    pos: PositionComponent,
+    physics: PhysicsComponent
+  ): string | null {
+    try {
+      // Determine body shape based on entity type or physics component
+      const shape = PhysicsShape.BOX;
+      const mass = physics.mass || 1;
+
+      // Check if entity has voxel component to determine shape
+      const voxel = this.world.getComponent(entity, VoxelComponent);
+      const scale = this.world.getComponent(entity, ScaleComponent);
+      if (voxel) {
+        // Use voxel size and scale for body dimensions
+        const dimensions = vec3.fromValues(
+          voxel.size * (scale?.x || 1),
+          voxel.size * (scale?.y || 1),
+          voxel.size * (scale?.z || 1)
+        );
+
+        const options: PhysicsBodyOptions = {
+          material: {
+            friction: physics.friction,
+            restitution: physics.bounce,
+          },
+          dimensions: dimensions,
+          allowSleep: true,
+        };
+
+        return this.physicsAdapter.createBody(
+          vec3.fromValues(pos.x, pos.y, pos.z),
+          shape,
+          mass,
+          options
+        );
+      }
+
+      // Default body for entities without voxel component
+      const options: PhysicsBodyOptions = {
+        material: {
+          friction: physics.friction,
+          restitution: physics.bounce,
+        },
+        dimensions: vec3.fromValues(1, 1, 1),
+        allowSleep: true,
+      };
+
+      return this.physicsAdapter.createBody(
+        vec3.fromValues(pos.x, pos.y, pos.z),
+        shape,
+        mass,
+        options
+      );
+    } catch (error) {
+      console.warn("Failed to create physics body:", error);
+      return null;
+    }
+  }
+
+  private setupTerrainCollision(): void {
+    const worldSize = this.engine.getWorldSize();
+    this.physicsAdapter.addTerrainCollision(
+      (x: number, z: number) => this.getTerrainHeight(x, z),
+      worldSize
+    );
   }
 
   private getTerrainHeight(x: number, z: number): number {
@@ -79,6 +161,44 @@ export class PhysicsSystem extends System {
       Math.sin(x * 0.1) * Math.cos(z * 0.1) * 10 +
       Math.sin(x * 0.05) * Math.cos(z * 0.05) * 20;
     return Math.max(0, 4 + noise); // Base height 4 + noise
+  }
+
+  /**
+   * Apply force to an entity
+   */
+  applyForce(entityId: string, force: vec3, point?: vec3): void {
+    const bodyId = this.entityBodies.get(entityId);
+    if (bodyId) {
+      this.physicsAdapter.applyForce(bodyId, force, point);
+    }
+  }
+
+  /**
+   * Apply impulse to an entity
+   */
+  applyImpulse(entityId: string, impulse: vec3, point?: vec3): void {
+    const bodyId = this.entityBodies.get(entityId);
+    if (bodyId) {
+      this.physicsAdapter.applyImpulse(bodyId, impulse, point);
+    }
+  }
+
+  /**
+   * Set entity velocity directly
+   */
+  setVelocity(entityId: string, velocity: vec3): void {
+    const bodyId = this.entityBodies.get(entityId);
+    if (bodyId) {
+      this.physicsAdapter.setBodyVelocity(bodyId, velocity);
+    }
+  }
+
+  /**
+   * Cleanup physics resources
+   */
+  dispose(): void {
+    this.physicsAdapter.dispose();
+    this.entityBodies.clear();
   }
 }
 
@@ -253,7 +373,10 @@ export class RenderingSystem extends System {
  * Player movement system - handles player input and movement
  */
 export class PlayerMovementSystem extends System {
-  constructor(private engine: VoxelEngine) {
+  constructor(
+    private engine: VoxelEngine,
+    private physicsSystem: PhysicsSystem
+  ) {
     super();
     this.setQuery(
       new Query({
@@ -277,8 +400,8 @@ export class PlayerMovementSystem extends System {
 
       if (!pos || !vel || !input) continue;
 
-      const moveSpeed = 50 * _deltaTime;
-      const jumpForce = 15;
+      const moveSpeed = 20 * _deltaTime; // Reduced movement speed
+      const jumpForce = 8; // Reduced jump force
 
       // Get camera direction for relative movement
       const camera = this.engine.getCamera();
@@ -297,30 +420,57 @@ export class PlayerMovementSystem extends System {
       vec3.cross(right, forward, up);
       vec3.normalize(right, right);
 
-      // Handle movement input relative to camera direction
+      const entityId = entity.id.toString();
+
+      // Handle movement input relative to camera direction using physics forces
       if (input.moveForward) {
-        vel.x += forward[0] * moveSpeed;
-        vel.z += forward[2] * moveSpeed;
+        const force = vec3.fromValues(
+          forward[0] * moveSpeed * 50, // Reduced force multiplier
+          0,
+          forward[2] * moveSpeed * 50
+        );
+        this.physicsSystem.applyForce(entityId, force);
       }
       if (input.moveBackward) {
-        vel.x -= forward[0] * moveSpeed;
-        vel.z -= forward[2] * moveSpeed;
+        const force = vec3.fromValues(
+          -forward[0] * moveSpeed * 50,
+          0,
+          -forward[2] * moveSpeed * 50
+        );
+        this.physicsSystem.applyForce(entityId, force);
       }
       if (input.moveLeft) {
-        vel.x -= right[0] * moveSpeed;
-        vel.z -= right[2] * moveSpeed;
+        const force = vec3.fromValues(
+          -right[0] * moveSpeed * 50,
+          0,
+          -right[2] * moveSpeed * 50
+        );
+        this.physicsSystem.applyForce(entityId, force);
       }
       if (input.moveRight) {
-        vel.x += right[0] * moveSpeed;
-        vel.z += right[2] * moveSpeed;
+        const force = vec3.fromValues(
+          right[0] * moveSpeed * 50,
+          0,
+          right[2] * moveSpeed * 50
+        );
+        this.physicsSystem.applyForce(entityId, force);
       }
 
-      // Handle jump input
+      // Handle jump input using physics impulse
       const terrainHeight = this.getTerrainHeight(pos.x, pos.z);
       if (input.jump && pos.y <= terrainHeight + 0.1) {
         // Only jump when on ground
-        vel.y = jumpForce;
+        const impulse = vec3.fromValues(0, jumpForce * 5, 0); // Reduced impulse multiplier
+        this.physicsSystem.applyImpulse(entityId, impulse);
       }
+
+      // Apply velocity damping for smoother movement
+      const dampingForce = vec3.fromValues(
+        -vel.x * 5, // Horizontal damping
+        0, // No vertical damping (let gravity handle it)
+        -vel.z * 5
+      );
+      this.physicsSystem.applyForce(entityId, dampingForce);
 
       // Reset input flags
       input.moveForward = false;

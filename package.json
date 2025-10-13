@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@webgpu/types": "^0.1.40",
+    "cannon-es": "^0.20.0",
     "gl-matrix": "^3.4.3"
   },
   "devDependencies": {

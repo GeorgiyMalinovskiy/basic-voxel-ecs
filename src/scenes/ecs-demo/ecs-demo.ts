@@ -1,6 +1,6 @@
 import { BaseScene } from "../base-scene";
 import { VoxelEngine } from "../../engine";
-import { World } from "../../ecs";
+import { World, System } from "../../ecs";
 import {
   PositionComponent,
   VelocityComponent,
@@ -33,7 +33,7 @@ export class ECSDemoScene extends BaseScene {
   description = "Entity Component System with physics, spawning, and rendering";
 
   private world!: World;
-  private systems: any[] = [];
+  private systems: System[] = [];
 
   generate(engine: VoxelEngine): void {
     console.log("Generating ECS demo scene...");
@@ -42,14 +42,15 @@ export class ECSDemoScene extends BaseScene {
     this.world = new World();
 
     // Create systems
+    const physicsSystem = new PhysicsSystem(engine);
     this.systems = [
-      new PhysicsSystem(engine),
+      physicsSystem,
       new RotationSystem(),
       new LifetimeSystem(),
       new SpawnerSystem(engine),
       new RenderingSystem(engine),
       new InputSystem(engine),
-      new PlayerMovementSystem(engine),
+      new PlayerMovementSystem(engine, physicsSystem),
       new CameraControlSystem(engine),
     ];
 
@@ -86,7 +87,7 @@ export class ECSDemoScene extends BaseScene {
     // Clean up ECS world
     if (this.world) {
       // Systems will be cleaned up automatically
-      this.world = null as any;
+      this.world = null as unknown as World;
     }
     (engine as any).world = null;
 
@@ -97,24 +98,60 @@ export class ECSDemoScene extends BaseScene {
   private createPlayer(): void {
     const player = this.world.createEntity();
     this.world.addComponent(player, new PlayerComponent(100));
-    this.world.addComponent(player, new PositionComponent(10, 5, 10));
+
+    // Spawn player above terrain
+    const spawnX = 10;
+    const spawnZ = 10;
+    const terrainHeight = this.getTerrainHeight(spawnX, spawnZ);
+    const spawnY = terrainHeight + 5; // 5 units above terrain
+
+    this.world.addComponent(
+      player,
+      new PositionComponent(spawnX, spawnY, spawnZ)
+    );
     this.world.addComponent(player, new VelocityComponent(0, 0, 0));
     this.world.addComponent(player, new VoxelComponent("box", 1, 1));
     this.world.addComponent(player, new ScaleComponent(1, 2, 1));
-    this.world.addComponent(player, new PhysicsComponent(2, 0.8, 0.2, true));
+    this.world.addComponent(player, new PhysicsComponent(1, 0.9, 0.1, true));
     this.world.addComponent(player, new InputComponent());
+  }
+
+  private getTerrainHeight(x: number, z: number): number {
+    // Simple terrain height calculation matching the engine's terrain generation
+    const noise =
+      Math.sin(x * 0.1) * Math.cos(z * 0.1) * 10 +
+      Math.sin(x * 0.05) * Math.cos(z * 0.05) * 20;
+    return Math.max(0, 4 + noise); // Base height 4 + noise
   }
 
   private createCamera(): void {
     const camera = this.world.createEntity();
     this.world.addComponent(camera, new CameraComponent(75, 0.1, 1000));
-    this.world.addComponent(camera, new PositionComponent(15, 8, 15));
+
+    // Position camera above terrain
+    const cameraX = 15;
+    const cameraZ = 15;
+    const terrainHeight = this.getTerrainHeight(cameraX, cameraZ);
+    const cameraY = terrainHeight + 8; // 8 units above terrain
+
+    this.world.addComponent(
+      camera,
+      new PositionComponent(cameraX, cameraY, cameraZ)
+    );
   }
 
   private createSpawners(): void {
     // Sphere spawner
     const sphereSpawner = this.world.createEntity();
-    this.world.addComponent(sphereSpawner, new PositionComponent(5, 2, 5));
+    const sphereX = 5;
+    const sphereZ = 5;
+    const sphereTerrainHeight = this.getTerrainHeight(sphereX, sphereZ);
+    const sphereY = sphereTerrainHeight + 10; // 10 units above terrain
+
+    this.world.addComponent(
+      sphereSpawner,
+      new PositionComponent(sphereX, sphereY, sphereZ)
+    );
     this.world.addComponent(
       sphereSpawner,
       new SpawnerComponent("sphere", 0.5, 0, 8)
@@ -122,7 +159,15 @@ export class ECSDemoScene extends BaseScene {
 
     // Box spawner
     const boxSpawner = this.world.createEntity();
-    this.world.addComponent(boxSpawner, new PositionComponent(15, 2, 15));
+    const boxX = 15;
+    const boxZ = 15;
+    const boxTerrainHeight = this.getTerrainHeight(boxX, boxZ);
+    const boxY = boxTerrainHeight + 10; // 10 units above terrain
+
+    this.world.addComponent(
+      boxSpawner,
+      new PositionComponent(boxX, boxY, boxZ)
+    );
     this.world.addComponent(boxSpawner, new SpawnerComponent("box", 0.3, 0, 6));
   }
 
@@ -130,14 +175,12 @@ export class ECSDemoScene extends BaseScene {
     // Create some initial spheres
     for (let i = 0; i < 3; i++) {
       const entity = this.world.createEntity();
-      this.world.addComponent(
-        entity,
-        new PositionComponent(
-          Math.random() * 10 + 5,
-          Math.random() * 5 + 8,
-          Math.random() * 10 + 5
-        )
-      );
+      const x = Math.random() * 10 + 5;
+      const z = Math.random() * 10 + 5;
+      const terrainHeight = this.getTerrainHeight(x, z);
+      const y = terrainHeight + Math.random() * 5 + 8; // Above terrain
+
+      this.world.addComponent(entity, new PositionComponent(x, y, z));
       this.world.addComponent(
         entity,
         new VelocityComponent(
@@ -199,7 +242,7 @@ export class ECSDemoScene extends BaseScene {
   /**
    * Get all systems
    */
-  getSystems(): any[] {
+  getSystems(): System[] {
     return this.systems;
   }
 }
