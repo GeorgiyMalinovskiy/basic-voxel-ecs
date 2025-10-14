@@ -4,7 +4,7 @@ import {
   PhysicsShape,
   PhysicsBodyOptions,
   PhysicsWorldConfig,
-} from "./physics-adapter";
+} from "@/physics/physics-adapter";
 
 /**
  * Simple physics adapter - fallback implementation

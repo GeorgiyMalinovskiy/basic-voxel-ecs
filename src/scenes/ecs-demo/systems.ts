@@ -1,8 +1,8 @@
-import { System, Query, Entity } from "../../ecs";
-import { VoxelEngine } from "../../engine";
+import { System, Query, Entity } from "@/ecs";
+import { VoxelEngine } from "@/engine";
 import { vec3 } from "gl-matrix";
-import type { IPhysicsAdapter, PhysicsBodyOptions } from "../../physics";
-import { PhysicsAdapterFactory, PhysicsShape } from "../../physics";
+import type { IPhysicsAdapter, PhysicsBodyOptions } from "@/physics";
+import { PhysicsAdapterFactory, PhysicsShape } from "@/physics";
 import {
   PositionComponent,
   VelocityComponent,

@@ -1,8 +1,8 @@
-import { WebGPURenderer } from "./webgpu";
-import { Camera } from "./camera";
-import { voxelVertexShader, voxelFragmentShader } from "./shaders";
-import { Octree } from "../voxel/octree";
-import { MarchingCubes, Mesh, MeshVertex } from "../voxel/marching-cubes";
+import { WebGPURenderer } from "@/renderer/webgpu";
+import { Camera } from "@/renderer/camera";
+import { voxelVertexShader, voxelFragmentShader } from "@/renderer/shaders";
+import { Octree } from "@/voxel/octree";
+import { MarchingCubes, Mesh, MeshVertex } from "@/voxel/marching-cubes";
 
 /**
  * Vertex data layout for WebGPU
@@ -165,7 +165,6 @@ export class VoxelRenderer {
   updateMesh(): void {
     if (!this.meshNeedsUpdate) return;
 
-    console.log("Generating mesh from octree...");
     this.currentMesh = this.marchingCubes.generateMesh(this.octree);
 
     if (this.currentMesh.vertices.length > 0) {
@@ -173,9 +172,6 @@ export class VoxelRenderer {
     }
 
     this.meshNeedsUpdate = false;
-    console.log(
-      `Generated mesh with ${this.currentMesh.vertices.length} vertices and ${this.currentMesh.indices.length} indices`
-    );
   }
 
   /**
@@ -300,7 +296,10 @@ export class VoxelRenderer {
    * Update the renderer (call this every frame)
    */
   update(): void {
-    this.updateMesh();
+    // Only update mesh if it's marked as dirty
+    if (this.meshNeedsUpdate) {
+      this.updateMesh();
+    }
   }
 
   /**

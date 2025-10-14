@@ -75,6 +75,19 @@ export class Camera {
   }
 
   /**
+   * Get camera rotation angles (yaw, pitch) in radians
+   */
+  getRotation(): { yaw: number; pitch: number } {
+    const offset = vec3.create();
+    vec3.subtract(offset, this.target, this.position);
+    
+    const yaw = Math.atan2(offset[2], offset[0]);
+    const pitch = Math.asin(offset[1] / vec3.length(offset));
+    
+    return { yaw, pitch };
+  }
+
+  /**
    * Set aspect ratio
    */
   setAspect(aspect: number): void {

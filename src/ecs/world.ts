@@ -1,7 +1,7 @@
-import { Entity } from "./entity";
-import { Component } from "./component";
-import type { ComponentConstructor } from "./component";
-import { System, Query } from "./system";
+import { Entity } from "@/ecs/entity";
+import { Component } from "@/ecs/component";
+import type { ComponentConstructor } from "@/ecs/component";
+import { System, Query } from "@/ecs/system";
 
 /**
  * The World manages all entities, components, and systems

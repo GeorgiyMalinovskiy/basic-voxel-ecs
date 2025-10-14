@@ -1,7 +1,7 @@
-import { Entity } from "./entity";
-import { Component } from "./component";
-import type { ComponentConstructor } from "./component";
-import { World } from "./world";
+import { Entity } from "@/ecs/entity";
+import { Component } from "@/ecs/component";
+import type { ComponentConstructor } from "@/ecs/component";
+import { World } from "@/ecs/world";
 
 /**
  * Query for filtering entities based on components

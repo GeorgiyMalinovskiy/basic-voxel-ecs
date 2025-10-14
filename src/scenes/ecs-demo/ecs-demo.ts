@@ -1,6 +1,6 @@
-import { BaseScene } from "../base-scene";
-import { VoxelEngine } from "../../engine";
-import { World, System } from "../../ecs";
+import { BaseScene } from "@/scenes/base-scene";
+import { VoxelEngine } from "@/engine";
+import { World, System } from "@/ecs";
 import {
   PositionComponent,
   VelocityComponent,
@@ -244,5 +244,15 @@ export class ECSDemoScene extends BaseScene {
    */
   getSystems(): System[] {
     return this.systems;
+  }
+
+  /**
+   * Update the ECS scene
+   */
+  update(deltaTime: number): void {
+    // Update all systems
+    for (const system of this.systems) {
+      system.update(deltaTime);
+    }
   }
 }

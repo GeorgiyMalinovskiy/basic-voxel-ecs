@@ -1,17 +1,15 @@
-import { Scene } from "./base-scene";
-import { ECSDemoScene } from "./ecs-demo";
+import { DemoScene } from "@/scenes/demo";
+import { BaseScene, type Scene } from "@/scenes/base-scene";
 
-// Re-export ECS demo
-export { ECSDemoScene } from "./ecs-demo";
-
-// Base classes
-export { BaseScene } from "./base-scene";
-export type { Scene } from "./base-scene";
+export { BaseScene, type Scene };
 
 /**
  * All available scenes
  */
-export const ALL_SCENES: Scene[] = [new ECSDemoScene()];
+export const ALL_SCENES: Scene[] = [
+  // new ECSDemoScene(),
+  new DemoScene(),
+];
 
 /**
  * Get scene by name

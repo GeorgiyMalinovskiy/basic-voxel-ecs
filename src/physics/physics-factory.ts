@@ -1,6 +1,6 @@
-import type { IPhysicsAdapter, PhysicsWorldConfig } from "./physics-adapter";
-import { CannonPhysicsAdapter } from "./cannon-adapter";
-import { SimplePhysicsAdapter } from "./simple-adapter";
+import type { IPhysicsAdapter, PhysicsWorldConfig } from "@/physics/physics-adapter";
+import { CannonPhysicsAdapter } from "@/physics/cannon-adapter";
+import { SimplePhysicsAdapter } from "@/physics/simple-adapter";
 
 /**
  * Physics adapter factory

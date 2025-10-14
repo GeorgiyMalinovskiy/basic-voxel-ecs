@@ -1,5 +1,6 @@
-import { VoxelEngine } from "./engine";
-import { ALL_SCENES, Scene, ECSDemoScene } from "./scenes";
+import { VoxelEngine } from "@/engine";
+import { ALL_SCENES, Scene } from "@/scenes";
+import { DemoScene } from "./scenes/demo";
 
 /**
  * Demo scene setup with scene selector
@@ -10,7 +11,7 @@ class Demo {
   private isGenerating = false;
   private currentSceneIndex = 0;
   private currentScene: Scene;
-  private ecsScene: ECSDemoScene | null = null;
+  private ecsScene: DemoScene | null = null;
 
   constructor() {
     const canvas = document.getElementById("canvas") as HTMLCanvasElement;
@@ -104,11 +105,15 @@ class Demo {
     this.currentScene.generate(this.engine);
 
     // Store reference to ECS scene for cleanup
-    if (this.currentScene instanceof ECSDemoScene) {
-      this.ecsScene = this.currentScene;
-    } else {
-      this.ecsScene = null;
-    }
+    // Register ECS update function with engine
+    this.engine.setExternalECSUpdate((deltaTime: number) => {
+      if (
+        "update" in this.currentScene &&
+        typeof this.currentScene.update === "function"
+      ) {
+        this.currentScene.update(deltaTime);
+      }
+    });
 
     console.log(`Scene loaded: ${this.currentScene.name}`);
   }
@@ -246,6 +251,7 @@ class Demo {
     const stats = this.engine.getStats();
     const camera = this.engine.getCamera();
     const position = camera.getPosition();
+    const rotation = camera.getRotation();
 
     // Get ECS stats if available
     let ecsStats = "";
@@ -264,6 +270,10 @@ class Demo {
       Position: ${position[0].toFixed(1)}, ${position[1].toFixed(
       1
     )}, ${position[2].toFixed(1)}<br/>
+      Angle: ${((rotation.yaw * 180) / Math.PI).toFixed(1)}°, ${(
+      (rotation.pitch * 180) /
+      Math.PI
+    ).toFixed(1)}°<br/>
       Entities: ${stats.entities} | Vertices: ${stats.vertices} | Triangles: ${
       stats.triangles
     }${ecsStats}<br/>

@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import wasm from "vite-plugin-wasm";
 import topLevelAwait from "vite-plugin-top-level-await";
+import path from "path";
 
 export default defineConfig({
   plugins: [wasm(), topLevelAwait()],
@@ -17,6 +18,9 @@ export default defineConfig({
   },
   resolve: {
     extensions: [".ts", ".js"],
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
   },
   base: "",
   publicDir: "public",

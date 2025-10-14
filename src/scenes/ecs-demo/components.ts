@@ -1,4 +1,4 @@
-import { Component } from "../../ecs";
+import { Component } from "@/ecs";
 
 /**
  * Position component - stores 3D position

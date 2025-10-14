@@ -1,8 +1,8 @@
-import { World } from "./ecs";
-import { WebGPURenderer } from "./renderer/webgpu";
-import { Camera } from "./renderer/camera";
-import { VoxelRenderer } from "./renderer/voxel-renderer";
-import { Octree, Vec3, Voxel } from "./voxel/octree";
+import { World } from "@/ecs";
+import { WebGPURenderer } from "@/renderer/webgpu";
+import { Camera } from "@/renderer/camera";
+import { VoxelRenderer } from "@/renderer/voxel-renderer";
+import { Octree, Vec3, Voxel } from "@/voxel/octree";
 import { vec3 } from "gl-matrix";
 
 /**
@@ -29,6 +29,7 @@ export class VoxelEngine {
   private isRunning = false;
   private lastTime = 0;
   private backgroundColor: GPUColor;
+  private externalECSUpdate?: (deltaTime: number) => void;
 
   // Input handling
   private keys = new Set<string>();
@@ -131,6 +132,11 @@ export class VoxelEngine {
 
     // Update ECS world
     this.world.update(deltaTime);
+
+    // Update external ECS scene if provided
+    if (this.externalECSUpdate) {
+      this.externalECSUpdate(deltaTime);
+    }
 
     // Update voxel renderer
     this.voxelRenderer.update();
@@ -355,11 +361,12 @@ export class VoxelEngine {
 
           if (distance <= radius) {
             const density = Math.max(0, 1 - distance / radius);
-            this.setVoxel({ x, y, z }, { density, material });
+            this.octree.setVoxel({ x, y, z }, { density, material });
           }
         }
       }
     }
+    this.markMeshDirty();
   }
 
   /**
@@ -369,10 +376,11 @@ export class VoxelEngine {
     for (let x = min.x; x <= max.x; x++) {
       for (let y = min.y; y <= max.y; y++) {
         for (let z = min.z; z <= max.z; z++) {
-          this.setVoxel({ x, y, z }, { density: 1, material });
+          this.octree.setVoxel({ x, y, z }, { density: 1, material });
         }
       }
     }
+    this.markMeshDirty();
   }
 
   /**
@@ -392,10 +400,11 @@ export class VoxelEngine {
           if (y > terrainHeight - 3) material = 2; // Dirt
           if (y === Math.floor(terrainHeight)) material = 3; // Grass
 
-          this.setVoxel({ x, y, z }, { density: 1, material });
+          this.octree.setVoxel({ x, y, z }, { density: 1, material });
         }
       }
     }
+    this.markMeshDirty();
   }
 
   /**
@@ -424,5 +433,26 @@ export class VoxelEngine {
    */
   enableInput(): void {
     this.disableEngineInput = false;
+  }
+
+  /**
+   * Set external ECS update function
+   */
+  setExternalECSUpdate(updateFn: (deltaTime: number) => void): void {
+    this.externalECSUpdate = updateFn;
+  }
+
+  /**
+   * Clear external ECS update function
+   */
+  clearExternalECSUpdate(): void {
+    this.externalECSUpdate = undefined;
+  }
+
+  /**
+   * Mark mesh as dirty (needs regeneration)
+   */
+  markMeshDirty(): void {
+    this.voxelRenderer.markMeshDirty();
   }
 }

@@ -1,4 +1,4 @@
-import { VoxelEngine } from "../engine";
+import { VoxelEngine } from "@/engine";
 
 /**
  * Base scene interface that all scenes must implement

@@ -5,7 +5,7 @@ import {
   PhysicsShape,
   PhysicsBodyOptions,
   PhysicsWorldConfig,
-} from "./physics-adapter";
+} from "@/physics/physics-adapter";
 
 /**
  * Cannon.js physics adapter implementation
