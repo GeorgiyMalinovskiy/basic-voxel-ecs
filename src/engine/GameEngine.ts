@@ -4,6 +4,7 @@ import { Mesh } from "@/voxel";
 import { PhysicsSystem, InputSystem, MeshGenerationSystem } from "@/systems";
 import { Transform, Player, VoxelMesh } from "@/components";
 import { vec3 } from "gl-matrix";
+import { CAMERA, PLAYER_MESH, MESH_GEN } from "@/constants";
 
 /**
  * Main game engine - FULLY ECS-based voxel game engine
@@ -31,7 +32,7 @@ export class GameEngine {
     // Create systems
     this.physicsSystem = new PhysicsSystem();
     this.inputSystem = new InputSystem();
-    this.meshGenSystem = new MeshGenerationSystem(0.5);
+    this.meshGenSystem = new MeshGenerationSystem(MESH_GEN.ISO_LEVEL);
 
     // Add systems to world (order matters!)
     this.world.addSystem(this.inputSystem);
@@ -115,22 +116,22 @@ export class GameEngine {
         const pitch = this.inputSystem.getPitch();
 
         const offset = vec3.fromValues(
-          -Math.sin(yaw) * Math.cos(pitch) * 10,
-          Math.sin(pitch) * 10 + 5,
-          -Math.cos(yaw) * Math.cos(pitch) * 10
+          -Math.sin(yaw) * Math.cos(pitch) * CAMERA.FOLLOW_DISTANCE,
+          Math.sin(pitch) * CAMERA.FOLLOW_DISTANCE +
+            CAMERA.FOLLOW_HEIGHT_OFFSET,
+          -Math.cos(yaw) * Math.cos(pitch) * CAMERA.FOLLOW_DISTANCE
         );
 
         const cameraPos = vec3.create();
         vec3.add(cameraPos, transform.position, offset);
 
-        // Look at player's center/head height
-        // Player's octree is 12x12x12 with sphere center at local (6, 3.5, 6)
-        // So world center = transform.position + local center offset
+        // Calculate world position of player's visual center
+        // World position = Transform position + Local mesh center
         const targetPos = vec3.create();
         vec3.copy(targetPos, transform.position);
-        targetPos[0] += 6; // Local X center
-        targetPos[1] += 3.5; // Local Y center
-        targetPos[2] += 6; // Local Z center
+        targetPos[0] += PLAYER_MESH.LOCAL_CENTER.x;
+        targetPos[1] += PLAYER_MESH.LOCAL_CENTER.y;
+        targetPos[2] += PLAYER_MESH.LOCAL_CENTER.z;
 
         this.camera.setPosition(cameraPos);
         this.camera.setTarget(targetPos);

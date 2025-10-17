@@ -1,4 +1,5 @@
 import { mat4, vec3 } from "gl-matrix";
+import { CAMERA } from "@/constants";
 
 /**
  * Simple camera for 3D rendering
@@ -20,10 +21,10 @@ export class Camera {
   constructor(
     position = vec3.fromValues(0, 10, 20),
     target = vec3.fromValues(16, 0, 16),
-    fovy = Math.PI / 4,
+    fovy = CAMERA.FOV,
     aspect = 1.6,
-    near = 0.1,
-    far = 1000
+    near = CAMERA.NEAR,
+    far = CAMERA.FAR
   ) {
     this.position = position;
     this.target = target;

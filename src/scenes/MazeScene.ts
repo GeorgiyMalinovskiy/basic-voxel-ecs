@@ -5,12 +5,12 @@ import {
   Velocity,
   RigidBody,
   Player,
-  VoxelMesh,
   VoxelData,
   MeshAlgorithm,
 } from "@/components";
-import { VoxelMeshGenerator, Octree } from "@/voxel";
+import { Octree } from "@/voxel";
 import { vec3 } from "gl-matrix";
+import { PLAYER_MESH, PHYSICS } from "@/constants";
 
 /**
  * Maze demo scene with player
@@ -158,69 +158,65 @@ export class MazeScene {
     const world = engine.getWorld();
     const player = world.createEntity();
 
-    // Start position (center of start area, on the floor)
-    // The octree mesh is in local space (0-12), with sphere center at (6, 3.5, 6)
-    // World = Local + Transform, so Transform = World - Local
-    // We want the sphere center at world (4, 3.5, 4)
-    // Transform = (4, 0, 4) - (6, 0, 6) = (-2, 0, -2)
-    const startPos = vec3.fromValues(-2, 0, -2); // Sphere center will be at world (4, 3.5, 4)
+    // Calculate player Transform position
+    // Player mesh is in local octree space with center at PLAYER_MESH.LOCAL_CENTER
+    // To place player's visual center at desired world position (4, 3.5, 4):
+    // Transform = Desired World Position - Local Center
+    const desiredWorldPos = { x: 4, y: 3.5, z: 4 };
+    const startPos = vec3.fromValues(
+      desiredWorldPos.x - PLAYER_MESH.LOCAL_CENTER.x,
+      desiredWorldPos.y - PLAYER_MESH.LOCAL_CENTER.y,
+      desiredWorldPos.z - PLAYER_MESH.LOCAL_CENTER.z
+    );
 
-    // Option 1: Pre-generated mesh (simple cube - current approach)
-    // const playerMesh = VoxelMeshGenerator.generatePlayer({
-    //   x: 0.2,
-    //   y: 0.5,
-    //   z: 0.9,
-    // });
-    // world.addComponent(player, new VoxelMesh(playerMesh));
-
-    // Option 2: Use marching cubes for smooth organic player
+    // Create player voxel data (smooth marching cubes sphere)
     this.createPlayerVoxelData(world, player);
 
     // Add components
     world.addComponent(player, new Transform(startPos));
     world.addComponent(player, new Velocity(vec3.fromValues(0, 0, 0)));
-    world.addComponent(player, new RigidBody(1, 2, 0.3, false));
+    world.addComponent(
+      player,
+      new RigidBody(1, 2, PHYSICS.DEFAULT_FRICTION, false)
+    );
     world.addComponent(player, new Player(10, 0.002));
 
-    console.log("Player created at", startPos);
+    console.log(
+      `Player created at Transform: (${startPos[0]}, ${startPos[1]}, ${startPos[2]}), World center: (${desiredWorldPos.x}, ${desiredWorldPos.y}, ${desiredWorldPos.z})`
+    );
   }
 
   /**
    * Create voxel data for player using marching cubes
+   * Creates a smooth sphere using the PLAYER_MESH constants
    */
   private createPlayerVoxelData(
     world: import("@/ecs").World,
     entity: import("@/ecs").Entity
   ): void {
-    // Create a higher resolution octree for smooth marching cubes (12x12x12)
-    // Higher resolution = smoother sphere
-    const octree = new Octree(12, 5);
+    // Create octree at configured resolution
+    const octree = new Octree(PLAYER_MESH.OCTREE_SIZE, PLAYER_MESH.MAX_LEVEL);
 
-    // Create a smooth sphere/blob for the player character
-    // Center the sphere in the octree space
-    const centerX = 6;
-    const centerY = 3.5; // Center height, sphere will extend from 0 to 7
-    const centerZ = 6;
-    const radius = 3.5; // Radius to make a nice smooth sphere
-
-    // Higher resolution sampling for smoother gradients
-    for (let x = 0; x < 12; x++) {
-      for (let y = 0; y < 12; y++) {
-        for (let z = 0; z < 12; z++) {
-          const dx = x - centerX;
-          const dy = y - centerY;
-          const dz = z - centerZ;
+    // Generate smooth sphere in local octree space
+    for (let x = 0; x < PLAYER_MESH.OCTREE_SIZE; x++) {
+      for (let y = 0; y < PLAYER_MESH.OCTREE_SIZE; y++) {
+        for (let z = 0; z < PLAYER_MESH.OCTREE_SIZE; z++) {
+          const dx = x - PLAYER_MESH.LOCAL_CENTER.x;
+          const dy = y - PLAYER_MESH.LOCAL_CENTER.y;
+          const dz = z - PLAYER_MESH.LOCAL_CENTER.z;
           const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
           // Create smooth density falloff for organic marching cubes shape
-          if (distance <= radius + 1) {
-            // Smooth gradient from center to edge
-            const normalizedDist = distance / radius;
+          if (distance <= PLAYER_MESH.RADIUS + 1) {
+            const normalizedDist = distance / PLAYER_MESH.RADIUS;
             // Smooth step function for better marching cubes interpolation
             const density = Math.max(0, 1.0 - Math.pow(normalizedDist, 1.5));
 
             if (density > 0.05) {
-              octree.setVoxel({ x, y, z }, { density, material: 5 }); // Blue material
+              octree.setVoxel(
+                { x, y, z },
+                { density, material: PLAYER_MESH.MATERIAL }
+              );
             }
           }
         }

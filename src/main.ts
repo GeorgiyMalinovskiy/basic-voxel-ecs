@@ -1,6 +1,6 @@
 import { GameEngine } from "@/engine";
-import { ResolutionDemoScene } from "@/scenes/ResolutionDemoScene";
 import { MazeScene } from "@/scenes/MazeScene";
+// import { ResolutionDemoScene } from "@/scenes/ResolutionDemoScene";
 
 /**
  * Main application

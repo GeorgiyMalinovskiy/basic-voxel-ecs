@@ -1,6 +1,7 @@
 import { Camera } from "./Camera";
 import { Mesh } from "@/voxel";
 import { vertexShader, fragmentShader } from "./shaders";
+import { MESH_GEN } from "@/constants";
 
 /**
  * WebGPU renderer for voxel meshes
@@ -71,7 +72,10 @@ export class WebGPURenderer {
     });
 
     // Create initial buffers
-    this.createMeshBuffers(1000, 3000);
+    this.createMeshBuffers(
+      MESH_GEN.INITIAL_VERTEX_CAPACITY,
+      MESH_GEN.INITIAL_INDEX_CAPACITY
+    );
   }
 
   private createDepthTexture(): void {

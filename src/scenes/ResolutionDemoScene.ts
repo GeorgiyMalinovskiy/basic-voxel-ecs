@@ -9,6 +9,7 @@ import {
 } from "@/components";
 import { Octree } from "@/voxel";
 import { vec3 } from "gl-matrix";
+import { PHYSICS } from "@/constants";
 
 /**
  * Demo scene showing how voxel resolution affects marching cubes smoothness
@@ -146,10 +147,13 @@ export class ResolutionDemoScene {
     // Position player to view all spheres
     const startPos = vec3.fromValues(20, 10, 25);
 
-    // Simple marker (invisible player)
+    // Simple marker (invisible player for camera control)
     world.addComponent(player, new Transform(startPos));
     world.addComponent(player, new Velocity(vec3.fromValues(0, 0, 0)));
-    world.addComponent(player, new RigidBody(1, 2, 0.3, false));
+    world.addComponent(
+      player,
+      new RigidBody(1, 2, PHYSICS.DEFAULT_FRICTION, false)
+    );
     world.addComponent(player, new Player(15, 0.002)); // Faster movement for demo
 
     console.log("Player created at", startPos);
