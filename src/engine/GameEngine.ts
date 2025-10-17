@@ -2,7 +2,7 @@ import { World } from "@/ecs";
 import { Camera, WebGPURenderer } from "@/renderer";
 import { Octree, MarchingCubes, Mesh, Vec3, Voxel } from "@/voxel";
 import { PhysicsSystem, InputSystem } from "@/systems";
-import { Transform, Player } from "@/components";
+import { Transform, Player, VoxelMesh } from "@/components";
 import { vec3 } from "gl-matrix";
 
 /**
@@ -103,8 +103,6 @@ export class GameEngine {
     // Update camera to follow player
     this.updateCameraFollowPlayer();
 
-    this.frameCount++;
-
     // Regenerate mesh if dirty
     if (this.meshDirty) {
       this.currentMesh = this.marchingCubes.generateMesh(this.octree);
@@ -141,33 +139,54 @@ export class GameEngine {
 
         this.camera.setPosition(cameraPos);
         this.camera.setTarget(targetPos);
-
-        // Debug first few frames
-        if (this.frameCount < 5) {
-          console.log(
-            `Frame ${
-              this.frameCount
-            }: Player at [${transform.position[0].toFixed(
-              2
-            )}, ${transform.position[1].toFixed(
-              2
-            )}, ${transform.position[2].toFixed(
-              2
-            )}], Camera at [${cameraPos[0].toFixed(2)}, ${cameraPos[1].toFixed(
-              2
-            )}, ${cameraPos[2].toFixed(2)}]`
-          );
-        }
       }
     }
   }
-
-  private frameCount = 0;
 
   /**
    * Render the scene
    */
   private render(): void {
+    // Start with terrain mesh
+    if (this.currentMesh) {
+      const combinedMesh: Mesh = {
+        vertices: [...this.currentMesh.vertices],
+        indices: [...this.currentMesh.indices],
+      };
+
+      // Add voxel entities
+      const entities = this.world.query(Transform, VoxelMesh);
+      for (const entity of entities) {
+        const transform = this.world.getComponent(entity, Transform)!;
+        const voxelMesh = this.world.getComponent(entity, VoxelMesh)!;
+
+        if (voxelMesh.mesh.vertices.length > 0) {
+          const baseIndexOffset = combinedMesh.vertices.length;
+
+          // Transform and add vertices
+          for (const v of voxelMesh.mesh.vertices) {
+            combinedMesh.vertices.push({
+              position: {
+                x: v.position.x + transform.position[0],
+                y: v.position.y + transform.position[1],
+                z: v.position.z + transform.position[2],
+              },
+              normal: v.normal,
+              color: v.color,
+            });
+          }
+
+          // Add indices with offset
+          for (const idx of voxelMesh.mesh.indices) {
+            combinedMesh.indices.push(idx + baseIndexOffset);
+          }
+        }
+      }
+
+      // Upload combined mesh and render
+      this.renderer.updateMesh(combinedMesh);
+    }
+
     this.renderer.render(this.camera);
   }
 

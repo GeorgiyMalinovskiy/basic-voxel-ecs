@@ -20,15 +20,11 @@ export class InputSystem extends System {
     window.addEventListener("keydown", (e) => {
       const key = e.key.toLowerCase();
       this.keys.add(key);
-      console.log(
-        `Key down: "${key}", keys: ${Array.from(this.keys).join(",")}`
-      );
     });
 
     window.addEventListener("keyup", (e) => {
       const key = e.key.toLowerCase();
       this.keys.delete(key);
-      console.log(`Key up: "${key}"`);
     });
 
     window.addEventListener("mousemove", (e) => {
@@ -67,31 +63,22 @@ export class InputSystem extends System {
         Math.cos(this.yaw)
       );
 
-      const right = vec3.fromValues(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
+      const right = vec3.fromValues(-Math.cos(this.yaw), 0, Math.sin(this.yaw));
 
       // Handle movement
       const moveDir = vec3.create();
 
-      // Debug: log keys every frame if any are pressed
-      if (this.keys.size > 0) {
-        console.log(`Keys active: ${Array.from(this.keys).join(",")}`);
-      }
-
       if (this.keys.has("w")) {
         vec3.add(moveDir, moveDir, forward);
-        console.log("W pressed, forward:", forward);
       }
       if (this.keys.has("s")) {
         vec3.subtract(moveDir, moveDir, forward);
-        console.log("S pressed");
       }
       if (this.keys.has("a")) {
         vec3.subtract(moveDir, moveDir, right);
-        console.log("A pressed");
       }
       if (this.keys.has("d")) {
         vec3.add(moveDir, moveDir, right);
-        console.log("D pressed");
       }
 
       // Normalize and apply speed
@@ -100,13 +87,6 @@ export class InputSystem extends System {
         vec3.scale(moveDir, moveDir, player.moveSpeed);
         velocity.linear[0] = moveDir[0];
         velocity.linear[2] = moveDir[2];
-        console.log(
-          `Moving! Keys: ${Array.from(this.keys).join(
-            ","
-          )}, Velocity: ${velocity.linear[0].toFixed(
-            2
-          )}, ${velocity.linear[2].toFixed(2)}`
-        );
       } else {
         // Decelerate
         velocity.linear[0] *= 0.8;

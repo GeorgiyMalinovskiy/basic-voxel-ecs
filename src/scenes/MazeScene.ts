@@ -1,6 +1,13 @@
 import { GameEngine } from "@/engine";
 import { MazeGenerator } from "@/utils/MazeGenerator";
-import { Transform, Velocity, RigidBody, Player } from "@/components";
+import {
+  Transform,
+  Velocity,
+  RigidBody,
+  Player,
+  VoxelMesh,
+} from "@/components";
+import { VoxelMeshGenerator } from "@/voxel";
 import { vec3 } from "gl-matrix";
 
 /**
@@ -86,14 +93,22 @@ export class MazeScene {
     const world = engine.getWorld();
     const player = world.createEntity();
 
-    // Start position (center of start area)
-    const startPos = vec3.fromValues(2, 1, 2);
+    // Start position (center of start area, on the floor)
+    const startPos = vec3.fromValues(2, 0, 2);
+
+    // Generate player mesh (blue cube)
+    const playerMesh = VoxelMeshGenerator.generatePlayer({
+      x: 0.2,
+      y: 0.5,
+      z: 0.9,
+    });
 
     // Add components
     world.addComponent(player, new Transform(startPos));
     world.addComponent(player, new Velocity(vec3.fromValues(0, 0, 0)));
     world.addComponent(player, new RigidBody(1, 2, 0.3, false));
     world.addComponent(player, new Player(10, 0.002));
+    world.addComponent(player, new VoxelMesh(playerMesh));
 
     console.log("Player created at", startPos);
   }
