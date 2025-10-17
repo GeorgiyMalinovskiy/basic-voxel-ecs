@@ -1,17 +1,12 @@
-import { VoxelEngine } from "@/engine";
-import { ALL_SCENES, Scene } from "@/scenes";
-import { DemoScene } from "./scenes/demo";
+import { GameEngine } from "@/engine";
+import { MazeScene } from "@/scenes/MazeScene";
 
 /**
- * Demo scene setup with scene selector
+ * Main application
  */
-class Demo {
-  private engine: VoxelEngine;
+class App {
+  private engine: GameEngine;
   private infoElement: HTMLElement;
-  private isGenerating = false;
-  private currentSceneIndex = 0;
-  private currentScene: Scene;
-  private ecsScene: DemoScene | null = null;
 
   constructor() {
     const canvas = document.getElementById("canvas") as HTMLCanvasElement;
@@ -27,304 +22,100 @@ class Demo {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    // Initialize engine
-    this.engine = new VoxelEngine({
-      canvas,
-      worldSize: 128,
-      octreeMaxLevel: 6,
-      backgroundColor: { r: 0.2, g: 0.3, b: 0.4, a: 1.0 },
-    });
-
-    // Initialize current scene
-    this.currentScene = ALL_SCENES[this.currentSceneIndex];
-
-    this.setupEventListeners();
+    // Create game engine
+    this.engine = new GameEngine(canvas);
   }
 
   /**
-   * Initialize and start the demo
+   * Initialize and start the application
    */
-  async initialize(): Promise<void> {
+  async run(): Promise<void> {
     try {
-      console.log("Initializing demo...");
+      this.showMessage("Initializing...");
+
+      // Initialize engine
       await this.engine.initialize();
 
-      // Generate initial scene
-      this.loadScene(this.currentSceneIndex);
+      // Set up maze scene
+      const scene = new MazeScene();
+      scene.setup(this.engine);
 
-      // Start the engine
+      // Start engine
       this.engine.start();
 
-      // Start info update loop
+      // Start info updates
       this.updateInfo();
 
-      console.log("Demo started successfully!");
+      this.showMessage("");
+      console.log("Application started successfully!");
       console.log("Controls:");
-      console.log("- WASD: Move camera");
-      console.log("- Space/Shift: Move up/down");
+      console.log("- WASD: Move");
       console.log("- Mouse: Look around (click to lock)");
-      console.log("- C: Toggle camera lock");
-      console.log("- Q: Generate sphere");
-      console.log("- R: Change resolution");
-      console.log("- G: Regenerate terrain");
-      console.log("- L: Toggle logs");
+      console.log("- Space: Jump");
     } catch (error) {
-      console.error("Failed to initialize demo:", error);
-
-      if (error instanceof Error && error.message.includes("WebGPU")) {
-        this.showError(
-          "WebGPU is not supported in this browser. Please use a modern browser with WebGPU support."
-        );
-      } else {
-        this.showError(
-          "Failed to initialize the engine. Please check the console for details."
-        );
-      }
+      console.error("Failed to initialize:", error);
+      this.showError(error instanceof Error ? error.message : String(error));
     }
-  }
-
-  /**
-   * Load a scene by index
-   */
-  private loadScene(index: number): void {
-    if (index < 0 || index >= ALL_SCENES.length) {
-      console.error(`Invalid scene index: ${index}`);
-      return;
-    }
-
-    this.currentSceneIndex = index;
-    this.currentScene = ALL_SCENES[index];
-
-    console.log(`Loading scene: ${this.currentScene.name}`);
-    console.log(`Description: ${this.currentScene.description}`);
-
-    // Clear existing voxels
-    this.engine.clearVoxels();
-
-    // Generate the new scene
-    this.currentScene.generate(this.engine);
-
-    // Store reference to ECS scene for cleanup
-    // Register ECS update function with engine
-    this.engine.setExternalECSUpdate((deltaTime: number) => {
-      if (
-        "update" in this.currentScene &&
-        typeof this.currentScene.update === "function"
-      ) {
-        this.currentScene.update(deltaTime);
-      }
-    });
-
-    console.log(`Scene loaded: ${this.currentScene.name}`);
-  }
-
-  /**
-   * Switch to next scene
-   */
-  private nextScene(): void {
-    const nextIndex = (this.currentSceneIndex + 1) % ALL_SCENES.length;
-    this.loadScene(nextIndex);
-  }
-
-  /**
-   * Switch to previous scene
-   */
-  private previousScene(): void {
-    const prevIndex =
-      this.currentSceneIndex === 0
-        ? ALL_SCENES.length - 1
-        : this.currentSceneIndex - 1;
-    this.loadScene(prevIndex);
-  }
-
-  /**
-   * Set up additional event listeners for demo controls
-   */
-  private setupEventListeners(): void {
-    let currentResolution = 1;
-    let showLogs = false;
-
-    window.addEventListener("keydown", (e) => {
-      if (this.isGenerating) return;
-
-      // Only handle specific demo keys, let engine handle movement keys
-      switch (e.key.toLowerCase()) {
-        case "q":
-          // Generate random sphere
-          this.generateRandomSphere();
-          break;
-
-        case "r":
-          // Change resolution
-          currentResolution = currentResolution === 1 ? 2 : 1;
-          console.log(`Changed resolution to ${currentResolution}`);
-          break;
-
-        case "g":
-          // Regenerate current scene
-          this.loadScene(this.currentSceneIndex);
-          break;
-
-        case "l":
-          // Toggle logs
-          showLogs = !showLogs;
-          console.log(`Logs ${showLogs ? "enabled" : "disabled"}`);
-          break;
-
-        case "n":
-          // Next scene
-          this.nextScene();
-          break;
-
-        case "p":
-          // Previous scene
-          this.previousScene();
-          break;
-
-        case "escape":
-          // Exit pointer lock
-          if (document.pointerLockElement) {
-            document.exitPointerLock();
-          }
-          break;
-      }
-
-      // Don't prevent default for movement keys - let engine handle them
-    });
-
-    // Handle window resize - engine already handles this, but we can add demo-specific logic here if needed
-    // window.addEventListener("resize", () => {
-    //   this.engine.resize();
-    // });
-  }
-
-  /**
-   * Generate a random sphere
-   */
-  private generateRandomSphere(): void {
-    const x = Math.random() * 12 + 2;
-    const y = Math.random() * 5 + 8;
-    const z = Math.random() * 12 + 2;
-    const radius = Math.random() * 2 + 1;
-    const material = Math.floor(Math.random() * 3) + 1;
-
-    console.log(
-      `Generating sphere at (${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(
-        1
-      )}) with radius ${radius.toFixed(1)}`
-    );
-    this.engine.generateSphere({ x, y, z }, radius, material);
-  }
-
-  /**
-   * Regenerate terrain
-   */
-  private regenerateTerrain(): void {
-    if (this.isGenerating) return;
-
-    this.isGenerating = true;
-    console.log("Regenerating terrain...");
-
-    // Clear existing voxels
-    this.engine.clearVoxels();
-
-    // Generate new terrain with different parameters
-    setTimeout(() => {
-      this.engine.generateTerrain(16, 6 + Math.random() * 6);
-
-      // Add some random features
-      for (let i = 0; i < 2; i++) {
-        this.generateRandomSphere();
-      }
-
-      this.isGenerating = false;
-      console.log("Terrain regenerated");
-    }, 100);
   }
 
   /**
    * Update info display
    */
   private updateInfo(): void {
-    if (!this.infoElement) return;
-
     const stats = this.engine.getStats();
     const camera = this.engine.getCamera();
-    const position = camera.getPosition();
-    const rotation = camera.getRotation();
-
-    // Get ECS stats if available
-    let ecsStats = "";
-    if (this.ecsScene) {
-      const world = this.ecsScene.getWorld();
-      const systems = this.ecsScene.getSystems();
-      ecsStats = `<br/>ECS: ${world.getEntityCount()} entities | ${
-        systems.length
-      } systems`;
-    }
+    const pos = camera.getPosition();
 
     this.infoElement.innerHTML = `
-      <strong>${this.currentScene.name}</strong><br/>
-      ${this.currentScene.description}<br/>
+      <strong>Voxel ECS Maze Demo</strong><br/>
       <br/>
-      Position: ${position[0].toFixed(1)}, ${position[1].toFixed(
+      Position: ${pos[0].toFixed(1)}, ${pos[1].toFixed(1)}, ${pos[2].toFixed(
       1
-    )}, ${position[2].toFixed(1)}<br/>
-      Angle: ${((rotation.yaw * 180) / Math.PI).toFixed(1)}°, ${(
-      (rotation.pitch * 180) /
-      Math.PI
-    ).toFixed(1)}°<br/>
+    )}<br/>
       Entities: ${stats.entities} | Vertices: ${stats.vertices} | Triangles: ${
       stats.triangles
-    }${ecsStats}<br/>
-      Scene: ${this.currentSceneIndex + 1}/${ALL_SCENES.length}<br/>
+    }<br/>
       <br/>
       <strong>Controls:</strong><br/>
-      WASD + Mouse = Move/Look | Space/Shift = Up/Down<br/>
-      C = Camera lock | Q = Add sphere | G = Regenerate scene<br/>
-      N = Next scene | P = Previous scene | L = Logs
+      WASD = Move | Mouse = Look<br/>
+      Space = Jump | Click = Lock mouse
     `;
 
-    // Update every 100ms
-    setTimeout(() => this.updateInfo(), 100);
+    requestAnimationFrame(() => this.updateInfo());
   }
 
   /**
-   * Show error message
+   * Show message in info panel
+   */
+  private showMessage(message: string): void {
+    this.infoElement.innerHTML = message;
+  }
+
+  /**
+   * Show error
    */
   private showError(message: string): void {
-    document.body.innerHTML = `
-      <div style="
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(255, 0, 0, 0.1);
-        border: 2px solid red;
-        padding: 20px;
-        border-radius: 10px;
-        color: white;
-        font-family: monospace;
-        text-align: center;
-        max-width: 500px;
-      ">
+    const errorDiv = document.getElementById("error");
+    if (errorDiv) {
+      errorDiv.style.display = "block";
+      errorDiv.innerHTML = `
         <h3>Error</h3>
         <p>${message}</p>
-        <p>Please check the browser console for more details.</p>
-      </div>
-    `;
+        <p>Check console for details.</p>
+      `;
+    }
   }
 }
 
 /**
- * Initialize and start the demo
+ * Start the application
  */
 async function main() {
-  const demo = new Demo();
-  await demo.initialize();
+  const app = new App();
+  await app.run();
 }
 
-// Start the demo when the page loads
+// Start when DOM is ready
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", main);
 } else {

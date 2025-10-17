@@ -1,29 +1,26 @@
 # Dependencies
 node_modules/
+
+# Build output
 dist/
+*.local
 
-# WebAssembly build artifacts
-wasm/target/
-wasm/pkg/
-
-# IDE files
+# Editor
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
-# OS files
+# OS
 .DS_Store
 Thumbs.db
 
-# Debug logs
+# Logs
+*.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# Environment variables
+# Environment
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local 
+
