@@ -176,6 +176,11 @@ export class Octree {
     return voxel ? voxel.density : 0;
   }
 
+  getMaterial(position: Vec3): number {
+    const voxel = this.getVoxel(position);
+    return voxel ? voxel.material : 0;
+  }
+
   getAllVoxels(): Map<string, Voxel> {
     return this.root.getAllVoxels();
   }

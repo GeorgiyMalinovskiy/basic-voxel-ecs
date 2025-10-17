@@ -1,5 +1,5 @@
 import { GameEngine } from "@/engine";
-import { MazeScene } from "@/scenes/MazeScene";
+import { ResolutionDemoScene } from "@/scenes/ResolutionDemoScene";
 
 /**
  * Main application
@@ -36,8 +36,8 @@ class App {
       // Initialize engine
       await this.engine.initialize();
 
-      // Set up maze scene
-      const scene = new MazeScene();
+      // Set up resolution demo scene
+      const scene = new ResolutionDemoScene();
       scene.setup(this.engine);
 
       // Start engine
@@ -67,7 +67,7 @@ class App {
     const pos = camera.getPosition();
 
     this.infoElement.innerHTML = `
-      <strong>Voxel ECS Maze Demo</strong><br/>
+      <strong>Marching Cubes Resolution Demo</strong><br/>
       <br/>
       Position: ${pos[0].toFixed(1)}, ${pos[1].toFixed(1)}, ${pos[2].toFixed(
       1
@@ -75,6 +75,9 @@ class App {
       Entities: ${stats.entities} | Vertices: ${stats.vertices} | Triangles: ${
       stats.triangles
     }<br/>
+      <br/>
+      <strong>Compare sphere smoothness:</strong><br/>
+      Left to Right: 6³ → 12³ → 18³ → 24³<br/>
       <br/>
       <strong>Controls:</strong><br/>
       WASD = Move | Mouse = Look<br/>

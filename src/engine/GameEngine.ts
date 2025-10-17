@@ -1,44 +1,42 @@
 import { World } from "@/ecs";
 import { Camera, WebGPURenderer } from "@/renderer";
-import { Octree, MarchingCubes, Mesh, Vec3, Voxel } from "@/voxel";
-import { PhysicsSystem, InputSystem } from "@/systems";
+import { Mesh } from "@/voxel";
+import { PhysicsSystem, InputSystem, MeshGenerationSystem } from "@/systems";
 import { Transform, Player, VoxelMesh } from "@/components";
 import { vec3 } from "gl-matrix";
 
 /**
- * Main game engine - simple API for creating voxel games
+ * Main game engine - FULLY ECS-based voxel game engine
+ * Everything is an entity with components
  */
 export class GameEngine {
   private canvas: HTMLCanvasElement;
   private world: World;
   private renderer: WebGPURenderer;
   private camera: Camera;
-  private octree: Octree;
-  private marchingCubes: MarchingCubes;
 
   private physicsSystem: PhysicsSystem;
   private inputSystem: InputSystem;
+  private meshGenSystem: MeshGenerationSystem;
 
   private isRunning = false;
   private lastTime = 0;
-  private meshDirty = true;
-  private currentMesh: Mesh | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.world = new World();
     this.renderer = new WebGPURenderer(canvas);
     this.camera = new Camera();
-    this.octree = new Octree(64, 6);
-    this.marchingCubes = new MarchingCubes(0.5);
 
     // Create systems
     this.physicsSystem = new PhysicsSystem();
     this.inputSystem = new InputSystem();
+    this.meshGenSystem = new MeshGenerationSystem(0.5);
 
-    // Add systems to world
+    // Add systems to world (order matters!)
     this.world.addSystem(this.inputSystem);
     this.world.addSystem(this.physicsSystem);
+    this.world.addSystem(this.meshGenSystem); // Generate meshes after physics
 
     // Set up resize
     window.addEventListener("resize", () => {
@@ -97,18 +95,11 @@ export class GameEngine {
    * Update game state
    */
   private update(deltaTime: number): void {
-    // Update ECS
+    // Update ECS (all systems including mesh generation)
     this.world.update(deltaTime);
 
     // Update camera to follow player
     this.updateCameraFollowPlayer();
-
-    // Regenerate mesh if dirty
-    if (this.meshDirty) {
-      this.currentMesh = this.marchingCubes.generateMesh(this.octree);
-      this.renderer.updateMesh(this.currentMesh);
-      this.meshDirty = false;
-    }
   }
 
   /**
@@ -132,10 +123,10 @@ export class GameEngine {
         const cameraPos = vec3.create();
         vec3.add(cameraPos, transform.position, offset);
 
-        // Look at player's head height
+        // Look at player's center/head height
         const targetPos = vec3.create();
         vec3.copy(targetPos, transform.position);
-        targetPos[1] += 2;
+        targetPos[1] += 3.5; // Look at center of player sphere (sphere center at y=3.5 in local space)
 
         this.camera.setPosition(cameraPos);
         this.camera.setTarget(targetPos);
@@ -144,46 +135,49 @@ export class GameEngine {
   }
 
   /**
-   * Render the scene
+   * Render the scene - combine all VoxelMesh entities
    */
   private render(): void {
-    // Start with terrain mesh
-    if (this.currentMesh) {
-      const combinedMesh: Mesh = {
-        vertices: [...this.currentMesh.vertices],
-        indices: [...this.currentMesh.indices],
-      };
+    const combinedMesh: Mesh = {
+      vertices: [],
+      indices: [],
+    };
 
-      // Add voxel entities
-      const entities = this.world.query(Transform, VoxelMesh);
-      for (const entity of entities) {
-        const transform = this.world.getComponent(entity, Transform)!;
-        const voxelMesh = this.world.getComponent(entity, VoxelMesh)!;
+    // Get all entities with meshes (terrain + dynamic objects)
+    const entities = this.world.query(VoxelMesh);
+    for (const entity of entities) {
+      const voxelMesh = this.world.getComponent(entity, VoxelMesh)!;
+      const transform = this.world.getComponent(entity, Transform);
 
-        if (voxelMesh.mesh.vertices.length > 0) {
-          const baseIndexOffset = combinedMesh.vertices.length;
+      if (voxelMesh.mesh.vertices.length > 0) {
+        const baseIndexOffset = combinedMesh.vertices.length;
 
-          // Transform and add vertices
-          for (const v of voxelMesh.mesh.vertices) {
-            combinedMesh.vertices.push({
-              position: {
-                x: v.position.x + transform.position[0],
-                y: v.position.y + transform.position[1],
-                z: v.position.z + transform.position[2],
-              },
-              normal: v.normal,
-              color: v.color,
-            });
-          }
+        // Transform and add vertices (if has Transform, otherwise at origin)
+        const offset = transform
+          ? transform.position
+          : vec3.fromValues(0, 0, 0);
 
-          // Add indices with offset
-          for (const idx of voxelMesh.mesh.indices) {
-            combinedMesh.indices.push(idx + baseIndexOffset);
-          }
+        for (const v of voxelMesh.mesh.vertices) {
+          combinedMesh.vertices.push({
+            position: {
+              x: v.position.x + offset[0],
+              y: v.position.y + offset[1],
+              z: v.position.z + offset[2],
+            },
+            normal: v.normal,
+            color: v.color,
+          });
+        }
+
+        // Add indices with offset
+        for (const idx of voxelMesh.mesh.indices) {
+          combinedMesh.indices.push(idx + baseIndexOffset);
         }
       }
+    }
 
-      // Upload combined mesh and render
+    // Upload combined mesh and render
+    if (combinedMesh.vertices.length > 0) {
       this.renderer.updateMesh(combinedMesh);
     }
 
@@ -207,77 +201,23 @@ export class GameEngine {
   }
 
   /**
-   * Get the octree
-   */
-  getOctree(): Octree {
-    return this.octree;
-  }
-
-  /**
-   * Set a voxel
-   */
-  setVoxel(position: Vec3, voxel: Voxel): void {
-    this.octree.setVoxel(position, voxel);
-    this.meshDirty = true;
-  }
-
-  /**
-   * Get a voxel
-   */
-  getVoxel(position: Vec3): Voxel | null {
-    return this.octree.getVoxel(position);
-  }
-
-  /**
-   * Clear all voxels
-   */
-  clearVoxels(): void {
-    this.octree.clear();
-    this.meshDirty = true;
-  }
-
-  /**
-   * Generate a sphere of voxels
-   */
-  generateSphere(center: Vec3, radius: number, material = 1): void {
-    for (let x = center.x - radius; x <= center.x + radius; x++) {
-      for (let y = center.y - radius; y <= center.y + radius; y++) {
-        for (let z = center.z - radius; z <= center.z + radius; z++) {
-          const distance = Math.sqrt(
-            (x - center.x) ** 2 + (y - center.y) ** 2 + (z - center.z) ** 2
-          );
-          if (distance <= radius) {
-            const density = Math.max(0, 1 - distance / radius);
-            this.setVoxel({ x, y, z }, { density, material });
-          }
-        }
-      }
-    }
-  }
-
-  /**
-   * Generate a box of voxels
-   */
-  generateBox(min: Vec3, max: Vec3, material = 1): void {
-    for (let x = min.x; x <= max.x; x++) {
-      for (let y = min.y; y <= max.y; y++) {
-        for (let z = min.z; z <= max.z; z++) {
-          this.setVoxel({ x, y, z }, { density: 1, material });
-        }
-      }
-    }
-  }
-
-  /**
    * Get rendering stats
    */
   getStats(): { entities: number; vertices: number; triangles: number } {
+    let totalVertices = 0;
+    let totalTriangles = 0;
+
+    const entities = this.world.query(VoxelMesh);
+    for (const entity of entities) {
+      const voxelMesh = this.world.getComponent(entity, VoxelMesh)!;
+      totalVertices += voxelMesh.mesh.vertices.length;
+      totalTriangles += Math.floor(voxelMesh.mesh.indices.length / 3);
+    }
+
     return {
       entities: this.world.getAllEntities().length,
-      vertices: this.currentMesh?.vertices.length || 0,
-      triangles: this.currentMesh
-        ? Math.floor(this.currentMesh.indices.length / 3)
-        : 0,
+      vertices: totalVertices,
+      triangles: totalTriangles,
     };
   }
 }

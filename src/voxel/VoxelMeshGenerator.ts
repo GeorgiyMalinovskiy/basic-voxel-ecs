@@ -1,4 +1,5 @@
-import { Mesh, MeshVertex, Vec3 } from "./types";
+import { Mesh, MeshVertex } from "./MarchingCubes";
+import { Vec3 } from "./types";
 
 /**
  * Generate simple voxel meshes for entities

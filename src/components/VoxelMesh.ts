@@ -34,4 +34,8 @@ export class VoxelMesh extends Component {
   markClean(): void {
     this.dirty = false;
   }
+
+  getType(): string {
+    return "VoxelMesh";
+  }
 }
