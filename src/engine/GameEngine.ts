@@ -124,9 +124,13 @@ export class GameEngine {
         vec3.add(cameraPos, transform.position, offset);
 
         // Look at player's center/head height
+        // Player's octree is 12x12x12 with sphere center at local (6, 3.5, 6)
+        // So world center = transform.position + local center offset
         const targetPos = vec3.create();
         vec3.copy(targetPos, transform.position);
-        targetPos[1] += 3.5; // Look at center of player sphere (sphere center at y=3.5 in local space)
+        targetPos[0] += 6; // Local X center
+        targetPos[1] += 3.5; // Local Y center
+        targetPos[2] += 6; // Local Z center
 
         this.camera.setPosition(cameraPos);
         this.camera.setTarget(targetPos);

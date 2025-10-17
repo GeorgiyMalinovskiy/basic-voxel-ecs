@@ -1,5 +1,6 @@
 import { GameEngine } from "@/engine";
 import { ResolutionDemoScene } from "@/scenes/ResolutionDemoScene";
+import { MazeScene } from "@/scenes/MazeScene";
 
 /**
  * Main application
@@ -37,7 +38,7 @@ class App {
       await this.engine.initialize();
 
       // Set up resolution demo scene
-      const scene = new ResolutionDemoScene();
+      const scene = new MazeScene();
       scene.setup(this.engine);
 
       // Start engine

@@ -43,15 +43,15 @@ export class MazeScene {
    * Creates terrain as a regular ECS entity - just like any other entity!
    */
   private buildMaze(engine: GameEngine, maze: boolean[][]): void {
-    const wallHeight = 5;
-    const wallThickness = 3; // Thicker walls for more solid appearance
+    const wallHeight = 2;
+    const wallThickness = 1; // Thicker walls for more solid appearance
 
     // Create terrain entity - just a regular entity with VoxelData component!
     const world = engine.getWorld();
     const terrainEntity = world.createEntity();
     const octree = new Octree(64, 6);
     // Use smooth marching cubes for organic cave-like appearance
-    const voxelData = new VoxelData(octree, true, MeshAlgorithm.CUBIC);
+    const voxelData = new VoxelData(octree, true, MeshAlgorithm.MARCHING_CUBES);
     world.addComponent(terrainEntity, voxelData);
 
     // First, create a solid floor across the entire maze
@@ -217,11 +217,8 @@ export class MazeScene {
             // Smooth gradient from center to edge
             const normalizedDist = distance / radius;
             // Smooth step function for better marching cubes interpolation
-            const density = Math.max(
-              0,
-              1.0 - Math.pow(normalizedDist, 1.5)
-            );
-            
+            const density = Math.max(0, 1.0 - Math.pow(normalizedDist, 1.5));
+
             if (density > 0.05) {
               octree.setVoxel({ x, y, z }, { density, material: 5 }); // Blue material
             }
