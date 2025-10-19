@@ -1,5 +1,5 @@
 import { GameEngine } from "@/engine";
-import { MazeScene } from "@/scenes/MazeScene";
+import { ApiTestScene } from "@/scenes/ApiTestScene";
 // import { ResolutionDemoScene } from "@/scenes/ResolutionDemoScene";
 
 /**
@@ -38,8 +38,8 @@ class App {
       await this.engine.initialize();
 
       // Set up resolution demo scene
-      const scene = new MazeScene();
-      scene.setup(this.engine);
+      const scene = new ApiTestScene(this.engine);
+      scene.setup();
 
       // Start engine
       this.engine.start();
@@ -76,9 +76,6 @@ class App {
       Entities: ${stats.entities} | Vertices: ${stats.vertices} | Triangles: ${
       stats.triangles
     }<br/>
-      <br/>
-      <strong>Compare sphere smoothness:</strong><br/>
-      Left to Right: 6³ → 12³ → 18³ → 24³<br/>
       <br/>
       <strong>Controls:</strong><br/>
       WASD = Move | Mouse = Look<br/>

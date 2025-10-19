@@ -121,8 +121,6 @@ src/
 │   └── shaders.ts         # WGSL shaders
 │
 ├── scenes/                # Game scenes
-│   ├── MazeScene.ts       # Procedural maze demo
-│   └── ResolutionDemoScene.ts  # MC resolution comparison
 │
 ├── engine/                # Engine wrapper
 │   └── GameEngine.ts      # Main game loop + coordination
