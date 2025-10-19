@@ -1,10 +1,12 @@
+import { vec3 } from "gl-matrix";
+
 import { World } from "@/ecs";
 import { Camera, WebGPURenderer } from "@/renderer";
 import { Mesh } from "@/voxel";
 import { PhysicsSystem, InputSystem, MeshGenerationSystem } from "@/systems";
 import { Transform, Player, VoxelMesh } from "@/components";
-import { vec3 } from "gl-matrix";
-import { CAMERA, PLAYER_MESH, MESH_GEN } from "@/constants";
+import { RapierAdapter } from "@/physics";
+import { CAMERA, PLAYER_MESH, MESH_GEN, PHYSICS } from "@/constants";
 
 /**
  * Main game engine - FULLY ECS-based voxel game engine
@@ -19,6 +21,7 @@ export class GameEngine {
   private physicsSystem: PhysicsSystem;
   private inputSystem: InputSystem;
   private meshGenSystem: MeshGenerationSystem;
+  private physicsAdapter: RapierAdapter;
 
   private isRunning = false;
   private lastTime = 0;
@@ -29,8 +32,11 @@ export class GameEngine {
     this.renderer = new WebGPURenderer(canvas);
     this.camera = new Camera();
 
+    // Create physics adapter
+    this.physicsAdapter = new RapierAdapter();
+
     // Create systems
-    this.physicsSystem = new PhysicsSystem();
+    this.physicsSystem = new PhysicsSystem(this.physicsAdapter);
     this.inputSystem = new InputSystem();
     this.meshGenSystem = new MeshGenerationSystem(MESH_GEN.ISO_LEVEL);
 
@@ -52,7 +58,14 @@ export class GameEngine {
    * Initialize the engine
    */
   async initialize(): Promise<void> {
+    // Initialize physics adapter with gravity
+    await this.physicsAdapter.initialize(
+      vec3.fromValues(0, PHYSICS.GRAVITY, 0)
+    );
+
+    // Initialize renderer
     await this.renderer.initialize();
+
     console.log("Game engine initialized");
   }
 

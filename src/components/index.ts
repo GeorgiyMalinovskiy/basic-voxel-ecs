@@ -4,3 +4,4 @@ export { RigidBody } from "./RigidBody";
 export { Player } from "./Player";
 export { VoxelMesh } from "./VoxelMesh";
 export { VoxelData, MeshAlgorithm } from "./VoxelData";
+export { PhysicsBody } from "./PhysicsBody";

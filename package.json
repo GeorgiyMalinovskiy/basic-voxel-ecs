@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.19.2",
     "@webgpu/types": "^0.1.40",
     "gl-matrix": "^3.4.3"
   },

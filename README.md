@@ -849,15 +849,161 @@ export const PLAYER_MESH = {
 };
 ```
 
-### Physics
+### Physics Adapter System
+
+The physics adapter system provides an abstraction layer between the game engine and physics libraries, allowing you to swap physics engines without changing game code.
+
+#### Architecture
+
+**1. IPhysicsAdapter Interface** (`src/physics/IPhysicsAdapter.ts`)
+
+Defines the contract that all physics adapters must implement:
+
+- **Initialization**: `initialize(gravity)` - Set up physics world
+- **Simulation**: `step(deltaTime)` - Advance physics simulation
+- **Body Management**: Create, remove, and manipulate rigid bodies
+- **Collision Detection**: Get collision events between bodies
+- **Forces & Impulses**: Apply forces, impulses, and torques
+
+**2. RapierAdapter** (`src/physics/RapierAdapter.ts`)
+
+Current implementation using Rapier3D physics engine:
+
+- High-performance Rust-based physics (WASM)
+- ~3.7k GitHub stars
+- Full collision detection support
+- Supports all standard collision shapes (box, sphere, capsule, cylinder)
+
+**3. PhysicsSystem** (`src/systems/PhysicsSystem.ts`)
+
+ECS system that integrates physics with game entities:
+
+1. **Auto-creation**: Automatically creates physics bodies for entities with `Transform` + `RigidBody` components
+2. **Synchronization**: Syncs positions and velocities between ECS and physics world
+3. **Collision Handling**: Processes collision events from the adapter
+
+#### Components
+
+**PhysicsBody Component**
+
+Links an ECS entity to a physics body in the adapter:
 
 ```typescript
-export const PHYSICS = {
-  GRAVITY: -9.8, // m/s²
-  GROUND_LEVEL: 1, // Y position of ground
-  DEFAULT_FRICTION: 0.8,
-};
+class PhysicsBody {
+  handle: PhysicsBodyHandle; // Opaque reference to physics body
+  mass: number;
+  friction: number;
+  restitution: number;
+  lockRotations: boolean;
+}
 ```
+
+**RigidBody Component (Enhanced)**
+
+Physical properties for entities:
+
+```typescript
+class RigidBody {
+  mass: number; // 0 = static body
+  radius: number; // Collision shape size
+  height: number; // For capsule/cylinder shapes
+  friction: number;
+  restitution: number; // Bounciness (0-1)
+  isStatic: boolean;
+}
+```
+
+#### Usage Example
+
+```typescript
+// Create a dynamic block that falls
+const blockEntity = world.createEntity();
+
+// Add voxel visual data
+world.addComponent(
+  blockEntity,
+  new VoxelData(octree, true, MeshAlgorithm.CUBIC)
+);
+
+// Add transform (position)
+world.addComponent(blockEntity, new Transform(vec3.fromValues(5, 10, 5)));
+
+// Add velocity (optional - physics will manage it)
+world.addComponent(blockEntity, new Velocity(vec3.fromValues(0, 0, 0)));
+
+// Add rigid body - physics system will auto-create physics body
+// RigidBody(mass, radius, friction, isStatic, height)
+world.addComponent(blockEntity, new RigidBody(1, 0.5, 0.5, false, 1));
+```
+
+#### Swapping Physics Engines
+
+To switch from Rapier to another physics engine:
+
+1. Create a new adapter implementing `IPhysicsAdapter`:
+
+```typescript
+export class CannonAdapter implements IPhysicsAdapter {
+  // Implement all interface methods
+  async initialize(gravity: vec3) { ... }
+  step(deltaTime: number) { ... }
+  // ... etc
+}
+```
+
+2. Update `GameEngine.ts`:
+
+```typescript
+// Replace this:
+this.physicsAdapter = new RapierAdapter();
+
+// With:
+this.physicsAdapter = new CannonAdapter();
+```
+
+3. No other code changes needed! The `PhysicsSystem` works with any adapter.
+
+#### Features
+
+**✅ Implemented**
+
+- Rigid body dynamics
+- Gravity simulation
+- Collision detection
+- Box, sphere, capsule, cylinder collision shapes
+- Force and impulse application
+- Torque (angular forces)
+- Static and dynamic bodies
+- Friction and restitution
+- Sleep/wake system
+- Position and velocity synchronization
+
+**🔄 Future Enhancements**
+
+- Constraints and joints (hinges, sliders, etc.)
+- Soft body dynamics
+- Compound collision shapes
+- Collision filtering/layers
+- Ray casting
+- Character controller
+- Physics debug rendering
+
+#### Performance
+
+- Physics runs at fixed timestep in `PhysicsSystem.update()`
+- Rapier uses WASM for near-native performance
+- Automatic body sleeping for inactive objects
+- Efficient collision detection using broad phase + narrow phase
+
+#### Dependencies
+
+- `@dimforge/rapier3d-compat` - Rapier physics engine
+- `gl-matrix` - Math library for vectors/quaternions
+
+#### References
+
+- [Rapier3D Documentation](https://rapier.rs/docs/)
+- [GitHub Repository](https://github.com/dimforge/rapier)
 
 ### Camera
 
