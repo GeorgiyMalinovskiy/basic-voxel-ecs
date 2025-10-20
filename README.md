@@ -422,12 +422,15 @@ Physics properties.
 ```typescript
 import { RigidBody } from "@/components";
 
-const body = new RigidBody(
-  1.0, // mass
-  2.0, // height (for collision)
-  0.3, // friction
-  false // isStatic
-);
+// With VoxelData - collision auto-calculated from voxels
+const body = new RigidBody({ mass: 1.0, friction: 0.3 });
+
+// Without VoxelData - specify collision size
+const trigger = new RigidBody({
+  radius: 2.0, // Collision box size
+  friction: 0.3,
+  isStatic: true,
+});
 ```
 
 ### Player
@@ -805,7 +808,10 @@ const voxelData = new VoxelData(octree, true, MeshAlgorithm.MARCHING_CUBES);
 world.addComponent(player, voxelData);
 world.addComponent(player, new Transform(transformPos));
 world.addComponent(player, new Velocity(vec3.create()));
-world.addComponent(player, new RigidBody(1, 2, 0.3, false));
+world.addComponent(
+  player,
+  new RigidBody({ mass: 1, radius: 2, friction: 0.3 })
+);
 world.addComponent(player, new Player(10, 0.002));
 ```
 
@@ -916,25 +922,47 @@ class RigidBody {
 #### Usage Example
 
 ```typescript
-// Create a dynamic block that falls
-const blockEntity = world.createEntity();
-
-// Add voxel visual data
+// Light block (falls and is easily pushed)
+const lightBlock = world.createEntity();
 world.addComponent(
-  blockEntity,
+  lightBlock,
   new VoxelData(octree, true, MeshAlgorithm.CUBIC)
 );
+world.addComponent(lightBlock, new Transform(vec3.fromValues(5, 10, 5)));
+world.addComponent(lightBlock, new RigidBody({ mass: 1, friction: 0.5 }));
 
-// Add transform (position)
-world.addComponent(blockEntity, new Transform(vec3.fromValues(5, 10, 5)));
+// Heavy block (harder to move in collisions)
+const heavyBlock = world.createEntity();
+world.addComponent(
+  heavyBlock,
+  new VoxelData(octree2, true, MeshAlgorithm.CUBIC)
+);
+world.addComponent(heavyBlock, new Transform(vec3.fromValues(6, 10, 5)));
+world.addComponent(heavyBlock, new RigidBody({ mass: 10, friction: 0.5 }));
 
-// Add velocity (optional - physics will manage it)
-world.addComponent(blockEntity, new Velocity(vec3.fromValues(0, 0, 0)));
-
-// Add rigid body - physics system will auto-create physics body
-// RigidBody(mass, radius, friction, isStatic, height)
-world.addComponent(blockEntity, new RigidBody(1, 0.5, 0.5, false, 1));
+// Bouncy block (elastic collisions)
+const bouncyBlock = world.createEntity();
+world.addComponent(
+  bouncyBlock,
+  new VoxelData(octree3, true, MeshAlgorithm.CUBIC)
+);
+world.addComponent(bouncyBlock, new Transform(vec3.fromValues(7, 10, 5)));
+world.addComponent(
+  bouncyBlock,
+  new RigidBody({
+    mass: 2,
+    friction: 0.3,
+    restitution: 0.8, // 0 = no bounce, 1 = perfect bounce
+  })
+);
 ```
+
+#### How Mass Affects Physics
+
+- **All objects fall at the same rate** due to gravity (like real physics)
+- **Mass affects collision response**: Heavy objects push light objects more
+- **F = ma**: When applying forces, heavier objects accelerate slower
+- **Inertia**: Heavier objects resist changes in motion more
 
 #### Swapping Physics Engines
 
@@ -967,16 +995,19 @@ this.physicsAdapter = new CannonAdapter();
 
 **✅ Implemented**
 
-- Rigid body dynamics
-- Gravity simulation
-- Collision detection
-- Box, sphere, capsule, cylinder collision shapes
-- Force and impulse application
-- Torque (angular forces)
-- Static and dynamic bodies
-- Friction and restitution
-- Sleep/wake system
-- Position and velocity synchronization
+- **Rigid body dynamics** with proper mass simulation
+- **Gravity simulation** affecting all dynamic bodies
+- **Collision detection** with contact points and normals
+- **Collision shapes**: Box, sphere, capsule, cylinder
+- **Mass-based physics**: Heavier objects have more inertia in collisions
+- **Force and impulse application** (F = ma correctly applied)
+- **Torque** for angular forces (rotation)
+- **Static and dynamic bodies**
+- **Friction** for realistic surface interaction (0-1 range)
+- **Restitution** (bounciness) for elastic collisions (0-1 range)
+- **Sleep/wake system** for performance optimization
+- **Position and velocity synchronization** between ECS and physics world
+- **Auto-calculated collision boxes** from voxel data
 
 **🔄 Future Enhancements**
 

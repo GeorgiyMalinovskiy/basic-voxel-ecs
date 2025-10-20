@@ -1,12 +1,6 @@
 import { vec3 } from "gl-matrix";
 
-import {
-  VoxelData,
-  MeshAlgorithm,
-  RigidBody,
-  Transform,
-  Velocity,
-} from "@/components";
+import { VoxelData, MeshAlgorithm, RigidBody, Transform } from "@/components";
 import { GameEngine } from "@/engine";
 import { World } from "@/ecs";
 import { Octree } from "@/voxel";
@@ -22,12 +16,24 @@ export class ApiTestScene {
 
     this.setupCamera();
     this.createTerrain();
-    this.addBlock({ x: 5, y: 10, z: 5 }); // Higher up so they fall
-    this.addBlock({ x: 6, y: 15, z: 5 }); // Even higher
+
+    // Demonstrate different masses
+    this.addBlock({ x: 3, y: 15, z: 5 }, 1); // Light block
+    this.addBlock({ x: 5, y: 15, z: 5 }, 5); // Medium block
+    this.addBlock({ x: 7, y: 15, z: 5 }, 10); // Heavy block
+
+    // Add a bouncy block with high restitution
+    this.addBlock({ x: 4, y: 20, z: 5 }, 2, 0.3, 0.8);
   }
 
-  private addBlock(position: Vec3): void {
+  private addBlock(
+    position: Vec3,
+    mass: number = 1,
+    friction: number = 0.5,
+    restitution: number = 0.3
+  ): void {
     const octree = new Octree(64, 1);
+    // Create 1x1x1 voxel block at origin of octree
     octree.setVoxel({ x: 0, y: 0, z: 0 }, { density: 1.0, material: 1 });
     const voxelData = new VoxelData(octree, true, MeshAlgorithm.CUBIC);
 
@@ -37,12 +43,13 @@ export class ApiTestScene {
       blockEntity,
       new Transform(vec3.fromValues(position.x, position.y, position.z))
     );
+    // RigidBody with VoxelData - collision auto-calculated from voxels
+    // Mass affects inertia and collision response
+    // Restitution controls bounciness (0 = no bounce, 1 = perfect bounce)
     this.world.addComponent(
       blockEntity,
-      new Velocity(vec3.fromValues(0, 0, 0))
+      new RigidBody({ mass, friction, restitution })
     );
-    // RigidBody(mass, radius, friction, isStatic, height)
-    this.world.addComponent(blockEntity, new RigidBody(1, 0.5, 0.5, false, 1));
     voxelData.markDirty();
   }
 
@@ -52,13 +59,18 @@ export class ApiTestScene {
 
     const terrainEntity = this.world.createEntity();
     this.world.addComponent(terrainEntity, voxelData);
+
+    // Transform at origin - PhysicsSystem will auto-calculate collision box
+    // from voxel data (10x1x10 voxels) and center it properly
     this.world.addComponent(
       terrainEntity,
       new Transform(vec3.fromValues(0, 0, 0))
     );
-    // RigidBody(mass, radius, friction, isStatic, height) - static terrain
-    this.world.addComponent(terrainEntity, new RigidBody(0, 5, 0.5, true, 1));
 
+    // RigidBody - physics system will auto-calculate size from voxel data
+    this.world.addComponent(terrainEntity, new RigidBody({ isStatic: true }));
+
+    // Create 10x1x10 flat terrain
     for (let x = 0; x < 10; x++) {
       for (let y = 0; y < 1; y++) {
         for (let z = 0; z < 10; z++) {

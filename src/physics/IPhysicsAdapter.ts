@@ -40,6 +40,9 @@ export interface ColliderDescriptor {
   radius?: number; // For sphere, capsule, cylinder
   height?: number; // For capsule, cylinder
   offset?: vec3; // Offset from body center
+  mass?: number; // Mass of the collider (affects rigid body's total mass)
+  friction?: number; // Friction coefficient (0-1)
+  restitution?: number; // Bounciness (0-1)
 }
 
 /**
@@ -154,6 +157,11 @@ export interface IPhysicsAdapter {
    * Wake up a sleeping body
    */
   wakeUp(handle: PhysicsBodyHandle): void;
+
+  /**
+   * Get body mass
+   */
+  getMass(handle: PhysicsBodyHandle): number;
 
   /**
    * Set gravity

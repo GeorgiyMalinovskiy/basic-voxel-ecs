@@ -1,5 +1,11 @@
 import { System, Entity } from "@/ecs";
-import { Transform, Velocity, RigidBody, PhysicsBody } from "@/components";
+import {
+  Transform,
+  Velocity,
+  RigidBody,
+  PhysicsBody,
+  VoxelData,
+} from "@/components";
 import { IPhysicsAdapter, CollisionShape } from "@/physics";
 import { vec3 } from "gl-matrix";
 
@@ -45,6 +51,89 @@ export class PhysicsSystem extends System {
       const transform = this.world.getComponent(entity, Transform)!;
       const rigidBody = this.world.getComponent(entity, RigidBody)!;
       const velocity = this.world.getComponent(entity, Velocity);
+      const voxelData = this.world.getComponent(entity, VoxelData);
+
+      // Calculate collision box size
+      let halfExtents: vec3;
+
+      if (voxelData) {
+        // Calculate bounding box from voxel data
+        const octree = voxelData.octree;
+        const worldSize = octree.getWorldSize();
+
+        // Find actual voxel bounds
+        let minX = worldSize,
+          minY = worldSize,
+          minZ = worldSize;
+        let maxX = 0,
+          maxY = 0,
+          maxZ = 0;
+        let hasVoxels = false;
+
+        for (let x = 0; x < worldSize; x++) {
+          for (let y = 0; y < worldSize; y++) {
+            for (let z = 0; z < worldSize; z++) {
+              if (octree.getDensity({ x, y, z }) > 0.5) {
+                hasVoxels = true;
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                minZ = Math.min(minZ, z);
+                maxX = Math.max(maxX, x + 1);
+                maxY = Math.max(maxY, y + 1);
+                maxZ = Math.max(maxZ, z + 1);
+              }
+            }
+          }
+        }
+
+        if (hasVoxels) {
+          // Calculate center offset and half extents
+          const sizeX = maxX - minX;
+          const sizeY = maxY - minY;
+          const sizeZ = maxZ - minZ;
+
+          halfExtents = vec3.fromValues(sizeX / 2, sizeY / 2, sizeZ / 2);
+
+          // Calculate collider offset relative to transform origin
+          const centerX = (minX + maxX) / 2;
+          const centerY = (minY + maxY) / 2;
+          const centerZ = (minZ + maxZ) / 2;
+
+          // Create physics body at transform position
+          const handle = this.physicsAdapter.createRigidBody({
+            position: transform.position,
+            velocity: velocity?.linear,
+            mass: rigidBody.isStatic ? 0 : rigidBody.mass,
+            friction: rigidBody.friction,
+            restitution: 0.3,
+            lockRotations: true,
+          });
+
+          // Add collider with offset to match voxel bounds center
+          this.physicsAdapter.addCollider(handle, {
+            shape: CollisionShape.BOX,
+            halfExtents,
+            offset: vec3.fromValues(centerX, centerY, centerZ),
+            mass: rigidBody.mass,
+            friction: rigidBody.friction,
+            restitution: rigidBody.restitution,
+          });
+
+          this.world.addComponent(
+            entity,
+            new PhysicsBody(handle, rigidBody.mass, rigidBody.friction)
+          );
+
+          continue;
+        }
+      }
+
+      // Fallback: use radius from RigidBody
+      halfExtents = vec3.fromValues(
+        rigidBody.radius,
+        rigidBody.radius,
+        rigidBody.radius
+      );
 
       // Create physics body
       const handle = this.physicsAdapter.createRigidBody({
@@ -53,17 +142,17 @@ export class PhysicsSystem extends System {
         mass: rigidBody.isStatic ? 0 : rigidBody.mass,
         friction: rigidBody.friction,
         restitution: 0.3,
-        lockRotations: true, // Lock rotations for now (can be made configurable)
+        lockRotations: true,
       });
 
-      // Add collider (box shape based on radius)
-      const size = rigidBody.radius;
       this.physicsAdapter.addCollider(handle, {
         shape: CollisionShape.BOX,
-        halfExtents: vec3.fromValues(size, size, size),
+        halfExtents,
+        mass: rigidBody.mass,
+        friction: rigidBody.friction,
+        restitution: rigidBody.restitution,
       });
 
-      // Add PhysicsBody component to track the handle
       this.world.addComponent(
         entity,
         new PhysicsBody(handle, rigidBody.mass, rigidBody.friction)

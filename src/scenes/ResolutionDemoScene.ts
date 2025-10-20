@@ -152,7 +152,7 @@ export class ResolutionDemoScene {
     world.addComponent(player, new Velocity(vec3.fromValues(0, 0, 0)));
     world.addComponent(
       player,
-      new RigidBody(1, 2, PHYSICS.DEFAULT_FRICTION, false)
+      new RigidBody({ mass: 1, radius: 2, friction: PHYSICS.DEFAULT_FRICTION })
     );
     world.addComponent(player, new Player(15, 0.002)); // Faster movement for demo
 

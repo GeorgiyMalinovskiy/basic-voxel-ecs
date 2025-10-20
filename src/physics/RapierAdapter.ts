@@ -205,6 +205,21 @@ export class RapierAdapter implements IPhysicsAdapter {
       );
     }
 
+    // Set mass properties (mass is set on collider, not rigid body)
+    if (descriptor.mass !== undefined) {
+      colliderDesc.setMass(descriptor.mass);
+    }
+
+    // Set restitution (bounciness)
+    if (descriptor.restitution !== undefined) {
+      colliderDesc.setRestitution(descriptor.restitution);
+    }
+
+    // Set friction
+    if (descriptor.friction !== undefined) {
+      colliderDesc.setFriction(descriptor.friction);
+    }
+
     this.world.createCollider(colliderDesc, body);
   }
 
@@ -350,6 +365,13 @@ export class RapierAdapter implements IPhysicsAdapter {
     if (!body) throw new Error(`Body handle ${handle} not found`);
 
     body.wakeUp();
+  }
+
+  getMass(handle: PhysicsBodyHandle): number {
+    const body = this.bodyMap.get(handle as number);
+    if (!body) throw new Error(`Body handle ${handle} not found`);
+
+    return body.mass();
   }
 
   setGravity(gravity: vec3): void {

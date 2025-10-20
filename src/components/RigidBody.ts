@@ -1,30 +1,36 @@
 import { Component } from "@/ecs";
 
+export interface RigidBodyConfig {
+  mass?: number; // 0 = static body
+  radius?: number; // Fallback collision size (ignored if VoxelData exists)
+  height?: number; // Fallback height for capsule/cylinder shapes
+  friction?: number; // 0-1 range
+  restitution?: number; // Bounciness 0-1
+  isStatic?: boolean; // Static bodies don't move
+}
+
 /**
  * RigidBody component - physics properties
+ *
+ * Note: If entity has VoxelData component, collision shape is auto-calculated
+ * from voxel bounds. radius/height are only used as fallback for non-voxel entities.
  */
 export class RigidBody extends Component {
   public mass: number;
-  public radius: number; // Size for collision shape
-  public height: number; // Height for collision shape
+  public radius: number;
+  public height: number;
   public friction: number;
   public restitution: number;
   public isStatic: boolean;
 
-  constructor(
-    mass = 1,
-    radius = 1,
-    friction = 0.5,
-    isStatic = false,
-    height = 2
-  ) {
+  constructor(config: RigidBodyConfig = {}) {
     super();
-    this.mass = mass;
-    this.radius = radius;
-    this.height = height;
-    this.friction = friction;
-    this.restitution = 0.3; // Default restitution
-    this.isStatic = isStatic;
+    this.mass = config.mass ?? 1;
+    this.radius = config.radius ?? 1;
+    this.height = config.height ?? 2;
+    this.friction = config.friction ?? 0.5;
+    this.restitution = config.restitution ?? 0.3;
+    this.isStatic = config.isStatic ?? false;
   }
 
   getType(): string {
