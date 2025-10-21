@@ -446,6 +446,36 @@ const player = new Player(
 );
 ```
 
+### CameraTarget
+
+Makes the camera follow and look at an entity. Attach to any entity to make it the camera target.
+
+```typescript
+import { CameraTarget } from "@/components";
+
+// Auto-follow with custom distance
+const cameraTarget = new CameraTarget({
+  followDistance: 10, // Distance behind target (default: 10)
+  heightOffset: 2, // Height above target (default: 2)
+  lookAtOffset: vec3.fromValues(0, 1, 0), // Where to look (default: auto from mesh)
+  smooth: 0.1, // Camera smoothing (0-1, default: 0.1)
+});
+
+// Attach to player
+world.addComponent(playerEntity, cameraTarget);
+
+// Attach to any other entity (vehicle, projectile, etc.)
+world.addComponent(
+  vehicleEntity,
+  new CameraTarget({
+    followDistance: 20,
+    heightOffset: 5,
+  })
+);
+```
+
+**Note**: Camera follows entities with `CameraTarget` component. Falls back to `Player` component for backward compatibility. If entity has `VoxelData`, lookAtOffset is auto-calculated from mesh center.
+
 ### VoxelData
 
 Octree with voxel density data and mesh algorithm choice.

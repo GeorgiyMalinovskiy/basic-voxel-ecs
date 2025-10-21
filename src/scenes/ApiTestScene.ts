@@ -1,20 +1,27 @@
 import { vec3 } from "gl-matrix";
 
-import { VoxelData, MeshAlgorithm, RigidBody, Transform } from "@/components";
+import {
+  VoxelData,
+  MeshAlgorithm,
+  RigidBody,
+  Transform,
+  Player,
+  Velocity,
+  CameraTarget,
+} from "@/components";
 import { GameEngine } from "@/engine";
 import { World } from "@/ecs";
 import { Octree } from "@/voxel";
 import { Vec3 } from "@/voxel/types";
 export class ApiTestScene {
   protected world: World;
-  constructor(private engine: GameEngine) {
+  constructor(engine: GameEngine) {
     this.world = engine.getWorld();
   }
 
   public setup(): void {
     console.log("Setting up api test scene...");
 
-    this.setupCamera();
     this.createTerrain();
 
     // Demonstrate different masses
@@ -24,6 +31,31 @@ export class ApiTestScene {
 
     // Add a bouncy block with high restitution
     this.addBlock({ x: 4, y: 20, z: 5 }, 2, 0.3, 0.8);
+
+    // Create player entity with camera
+    const player = this.world.createEntity();
+
+    const octree = new Octree(64, 1);
+    octree.setVoxel({ x: 0, y: 0, z: 0 }, { density: 1.0, material: 1 });
+    const voxelData = new VoxelData(octree, true, MeshAlgorithm.CUBIC);
+    this.world.addComponent(player, voxelData);
+
+    // Add Player component for movement control
+    this.world.addComponent(player, new Player(3, 0.002));
+
+    // Add CameraTarget component to make camera follow this entity
+    this.world.addComponent(
+      player,
+      new CameraTarget({
+        followDistance: 10, // Distance behind player
+        heightOffset: 2, // Height above player
+        // lookAtOffset auto-calculated from voxel mesh center
+      })
+    );
+
+    this.world.addComponent(player, new Transform(vec3.fromValues(5, 1, 5)));
+    this.world.addComponent(player, new Velocity(vec3.fromValues(0, 0, 0)));
+    this.world.addComponent(player, new RigidBody({ mass: 1, friction: 0.1 }));
   }
 
   private addBlock(
@@ -31,7 +63,7 @@ export class ApiTestScene {
     mass: number = 1,
     friction: number = 0.5,
     restitution: number = 0.3
-  ): void {
+  ): VoxelData {
     const octree = new Octree(64, 1);
     // Create 1x1x1 voxel block at origin of octree
     octree.setVoxel({ x: 0, y: 0, z: 0 }, { density: 1.0, material: 1 });
@@ -51,6 +83,8 @@ export class ApiTestScene {
       new RigidBody({ mass, friction, restitution })
     );
     voxelData.markDirty();
+
+    return voxelData;
   }
 
   private createTerrain(): void {
@@ -80,16 +114,5 @@ export class ApiTestScene {
     }
 
     voxelData.markDirty();
-  }
-
-  private setupCamera(): void {
-    const camera = this.engine.getCamera();
-
-    // Position camera to look at the center of your mesh (5, 5, 1)
-    const meshCenter = vec3.fromValues(0, 0, 0);
-    const cameraPosition = vec3.fromValues(15, 5, 15); // Back and up from the mesh
-
-    camera.setPosition(cameraPosition);
-    camera.setTarget(meshCenter);
   }
 }

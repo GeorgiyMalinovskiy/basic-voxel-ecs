@@ -4,7 +4,13 @@ import { World } from "@/ecs";
 import { Camera, WebGPURenderer } from "@/renderer";
 import { Mesh } from "@/voxel";
 import { PhysicsSystem, InputSystem, MeshGenerationSystem } from "@/systems";
-import { Transform, Player, VoxelMesh } from "@/components";
+import {
+  Transform,
+  Player,
+  VoxelMesh,
+  VoxelData,
+  CameraTarget,
+} from "@/components";
 import { RapierAdapter } from "@/physics";
 import { CAMERA, PLAYER_MESH, MESH_GEN, PHYSICS } from "@/constants";
 
@@ -113,43 +119,128 @@ export class GameEngine {
     this.world.update(deltaTime);
 
     // Update camera to follow player
-    this.updateCameraFollowPlayer();
+    this.updateCamera();
   }
 
   /**
-   * Update camera to follow player
+   * Update camera to follow target entity
+   * Prioritizes CameraTarget component, falls back to Player component for backward compatibility
    */
-  private updateCameraFollowPlayer(): void {
-    const players = this.world.query(Transform, Player);
-    if (players.length > 0) {
-      const transform = this.world.getComponent(players[0], Transform);
-      if (transform) {
-        // Third-person camera
-        const yaw = this.inputSystem.getYaw();
-        const pitch = this.inputSystem.getPitch();
+  private updateCamera(): void {
+    // First check for entities with CameraTarget component
+    let targets = this.world.query(Transform, CameraTarget);
+    let useCameraTarget = true;
 
-        const offset = vec3.fromValues(
-          -Math.sin(yaw) * Math.cos(pitch) * CAMERA.FOLLOW_DISTANCE,
-          Math.sin(pitch) * CAMERA.FOLLOW_DISTANCE +
-            CAMERA.FOLLOW_HEIGHT_OFFSET,
-          -Math.cos(yaw) * Math.cos(pitch) * CAMERA.FOLLOW_DISTANCE
-        );
+    // Fallback to Player component for backward compatibility
+    if (targets.length === 0) {
+      targets = this.world.query(Transform, Player);
+      useCameraTarget = false;
+    }
 
-        const cameraPos = vec3.create();
-        vec3.add(cameraPos, transform.position, offset);
+    if (targets.length === 0) return;
 
-        // Calculate world position of player's visual center
-        // World position = Transform position + Local mesh center
-        const targetPos = vec3.create();
-        vec3.copy(targetPos, transform.position);
+    const target = targets[0];
+    const transform = this.world.getComponent(target, Transform);
+    if (!transform) return;
+
+    // Get camera settings
+    let followDistance: number;
+    let heightOffset: number;
+    let lookAtOffset: vec3;
+
+    if (useCameraTarget) {
+      const cameraTarget = this.world.getComponent(target, CameraTarget)!;
+      followDistance = cameraTarget.followDistance;
+      heightOffset = cameraTarget.heightOffset;
+      lookAtOffset = cameraTarget.lookAtOffset;
+    } else {
+      // Use defaults for Player entities
+      followDistance = CAMERA.FOLLOW_DISTANCE;
+      heightOffset = CAMERA.FOLLOW_HEIGHT_OFFSET;
+      lookAtOffset = vec3.fromValues(0, 0, 0);
+    }
+
+    // Third-person camera
+    const yaw = this.inputSystem.getYaw();
+    const pitch = this.inputSystem.getPitch();
+
+    const offset = vec3.fromValues(
+      -Math.sin(yaw) * Math.cos(pitch) * followDistance,
+      Math.sin(pitch) * followDistance + heightOffset,
+      -Math.cos(yaw) * Math.cos(pitch) * followDistance
+    );
+
+    const cameraPos = vec3.create();
+    vec3.add(cameraPos, transform.position, offset);
+
+    // Calculate look-at position
+    const targetPos = vec3.create();
+    vec3.copy(targetPos, transform.position);
+
+    // Add custom lookAtOffset if specified
+    if (
+      lookAtOffset[0] !== 0 ||
+      lookAtOffset[1] !== 0 ||
+      lookAtOffset[2] !== 0
+    ) {
+      vec3.add(targetPos, targetPos, lookAtOffset);
+    } else {
+      // Auto-calculate from voxel mesh center
+      const voxelData = this.world.getComponent(target, VoxelData);
+      if (voxelData) {
+        const meshCenter = this.calculateMeshCenter(voxelData);
+        vec3.add(targetPos, targetPos, meshCenter);
+      } else if (!useCameraTarget) {
+        // Legacy fallback for Player without voxel data
         targetPos[0] += PLAYER_MESH.LOCAL_CENTER.x;
         targetPos[1] += PLAYER_MESH.LOCAL_CENTER.y;
         targetPos[2] += PLAYER_MESH.LOCAL_CENTER.z;
-
-        this.camera.setPosition(cameraPos);
-        this.camera.setTarget(targetPos);
       }
     }
+
+    this.camera.setPosition(cameraPos);
+    this.camera.setTarget(targetPos);
+  }
+
+  /**
+   * Calculate mesh center from voxel data
+   */
+  private calculateMeshCenter(voxelData: VoxelData): vec3 {
+    const octree = voxelData.octree;
+    const worldSize = octree.getWorldSize();
+    let minX = worldSize,
+      minY = worldSize,
+      minZ = worldSize;
+    let maxX = 0,
+      maxY = 0,
+      maxZ = 0;
+    let hasVoxels = false;
+
+    for (let x = 0; x < worldSize; x++) {
+      for (let y = 0; y < worldSize; y++) {
+        for (let z = 0; z < worldSize; z++) {
+          if (octree.getDensity({ x, y, z }) > 0.5) {
+            hasVoxels = true;
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            minZ = Math.min(minZ, z);
+            maxX = Math.max(maxX, x + 1);
+            maxY = Math.max(maxY, y + 1);
+            maxZ = Math.max(maxZ, z + 1);
+          }
+        }
+      }
+    }
+
+    if (hasVoxels) {
+      return vec3.fromValues(
+        (minX + maxX) / 2,
+        (minY + maxY) / 2,
+        (minZ + maxZ) / 2
+      );
+    }
+
+    return vec3.fromValues(0, 0, 0);
   }
 
   /**
