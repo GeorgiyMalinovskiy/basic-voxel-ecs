@@ -25,12 +25,12 @@ export class ApiTestScene {
     this.createTerrain();
 
     // Demonstrate different masses
-    this.addBlock({ x: 3, y: 15, z: 5 }, 1); // Light block
-    this.addBlock({ x: 5, y: 15, z: 5 }, 5); // Medium block
-    this.addBlock({ x: 7, y: 15, z: 5 }, 10); // Heavy block
+    this.addBlock({ x: 3, y: 15, z: 5 }, 1, 0.5, 0.3, false); // Light block - no rotation
+    this.addBlock({ x: 5, y: 15, z: 5 }, 5, 0.5, 0.3, true); // Medium block - with rotation!
+    this.addBlock({ x: 7, y: 15, z: 5 }, 10, 0.5, 0.3, true); // Heavy block - with rotation!
 
-    // Add a bouncy block with high restitution
-    this.addBlock({ x: 4, y: 20, z: 5 }, 2, 0.3, 0.8);
+    // Add a bouncy rotating block
+    this.addBlock({ x: 4, y: 0, z: 5 }, 2, 0.3, 0.8, true);
 
     // Create player entity with camera
     const player = this.world.createEntity();
@@ -62,7 +62,8 @@ export class ApiTestScene {
     position: Vec3,
     mass: number = 1,
     friction: number = 0.5,
-    restitution: number = 0.3
+    restitution: number = 0.3,
+    enableRotation: boolean = false
   ): VoxelData {
     const octree = new Octree(64, 1);
     // Create 1x1x1 voxel block at origin of octree
@@ -78,9 +79,16 @@ export class ApiTestScene {
     // RigidBody with VoxelData - collision auto-calculated from voxels
     // Mass affects inertia and collision response
     // Restitution controls bounciness (0 = no bounce, 1 = perfect bounce)
+    // enableRotation allows the block to spin/tumble when colliding
     this.world.addComponent(
       blockEntity,
-      new RigidBody({ mass, friction, restitution })
+      new RigidBody({
+        mass,
+        friction,
+        restitution,
+        enableRotation,
+        angularDamping: 0.3, // Some air resistance to rotation
+      })
     );
     voxelData.markDirty();
 

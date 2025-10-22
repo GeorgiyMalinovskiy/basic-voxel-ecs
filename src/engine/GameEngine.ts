@@ -1,4 +1,4 @@
-import { vec3 } from "gl-matrix";
+import { vec3, mat4, quat } from "gl-matrix";
 
 import { World } from "@/ecs";
 import { Camera, WebGPURenderer } from "@/renderer";
@@ -261,19 +261,69 @@ export class GameEngine {
       if (voxelMesh.mesh.vertices.length > 0) {
         const baseIndexOffset = combinedMesh.vertices.length;
 
-        // Transform and add vertices (if has Transform, otherwise at origin)
-        const offset = transform
-          ? transform.position
-          : vec3.fromValues(0, 0, 0);
+        // Build transformation matrix
+        const transformMatrix = mat4.create();
+
+        if (transform) {
+          // Position
+          mat4.translate(transformMatrix, transformMatrix, transform.position);
+
+          // Rotation (Euler angles to quaternion to matrix)
+          if (
+            transform.rotation[0] !== 0 ||
+            transform.rotation[1] !== 0 ||
+            transform.rotation[2] !== 0
+          ) {
+            const rotQuat = quat.create();
+            quat.fromEuler(
+              rotQuat,
+              transform.rotation[0] * (180 / Math.PI), // Convert radians to degrees for fromEuler
+              transform.rotation[1] * (180 / Math.PI),
+              transform.rotation[2] * (180 / Math.PI)
+            );
+            const rotMatrix = mat4.create();
+            mat4.fromQuat(rotMatrix, rotQuat);
+            mat4.multiply(transformMatrix, transformMatrix, rotMatrix);
+          }
+
+          // Scale (if needed in future)
+          // mat4.scale(transformMatrix, transformMatrix, transform.scale);
+        }
 
         for (const v of voxelMesh.mesh.vertices) {
+          // Transform vertex position
+          const pos = vec3.fromValues(v.position.x, v.position.y, v.position.z);
+          vec3.transformMat4(pos, pos, transformMatrix);
+
+          // Transform normal (for lighting - use rotation only)
+          const normal = vec3.fromValues(v.normal.x, v.normal.y, v.normal.z);
+          if (
+            transform &&
+            (transform.rotation[0] !== 0 ||
+              transform.rotation[1] !== 0 ||
+              transform.rotation[2] !== 0)
+          ) {
+            const rotQuat = quat.create();
+            quat.fromEuler(
+              rotQuat,
+              transform.rotation[0] * (180 / Math.PI),
+              transform.rotation[1] * (180 / Math.PI),
+              transform.rotation[2] * (180 / Math.PI)
+            );
+            vec3.transformQuat(normal, normal, rotQuat);
+          }
+
           combinedMesh.vertices.push({
             position: {
-              x: v.position.x + offset[0],
-              y: v.position.y + offset[1],
-              z: v.position.z + offset[2],
+              x: pos[0],
+              y: pos[1],
+              z: pos[2],
             },
-            normal: v.normal,
+            normal: {
+              x: normal[0],
+              y: normal[1],
+              z: normal[2],
+            },
             color: v.color,
           });
         }

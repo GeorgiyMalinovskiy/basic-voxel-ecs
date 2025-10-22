@@ -7,6 +7,8 @@ export interface RigidBodyConfig {
   friction?: number; // 0-1 range
   restitution?: number; // Bounciness 0-1
   isStatic?: boolean; // Static bodies don't move
+  enableRotation?: boolean; // Enable angular momentum and rotation (default: false)
+  angularDamping?: number; // Resistance to rotation (0-1, default: 0.1)
 }
 
 /**
@@ -22,6 +24,8 @@ export class RigidBody extends Component {
   public friction: number;
   public restitution: number;
   public isStatic: boolean;
+  public enableRotation: boolean;
+  public angularDamping: number;
 
   constructor(config: RigidBodyConfig = {}) {
     super();
@@ -31,6 +35,8 @@ export class RigidBody extends Component {
     this.friction = config.friction ?? 0.5;
     this.restitution = config.restitution ?? 0.3;
     this.isStatic = config.isStatic ?? false;
+    this.enableRotation = config.enableRotation ?? false;
+    this.angularDamping = config.angularDamping ?? 0.1;
   }
 
   getType(): string {

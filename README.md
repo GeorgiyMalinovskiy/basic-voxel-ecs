@@ -422,10 +422,26 @@ Physics properties.
 ```typescript
 import { RigidBody } from "@/components";
 
-// With VoxelData - collision auto-calculated from voxels
+// Basic dynamic body
 const body = new RigidBody({ mass: 1.0, friction: 0.3 });
 
-// Without VoxelData - specify collision size
+// Body with angular momentum (can rotate/tumble)
+const rotatingBody = new RigidBody({
+  mass: 2.0,
+  friction: 0.5,
+  restitution: 0.4,
+  enableRotation: true, // Enable rotation physics!
+  angularDamping: 0.1, // Air resistance to rotation
+});
+
+// Static body (terrain, walls)
+const terrain = new RigidBody({
+  mass: 0, // or isStatic: true
+  friction: 0.8,
+  isStatic: true,
+});
+
+// Trigger zone (no VoxelData - specify size)
 const trigger = new RigidBody({
   radius: 2.0, // Collision box size
   friction: 0.3,
@@ -994,6 +1010,31 @@ world.addComponent(
 - **F = ma**: When applying forces, heavier objects accelerate slower
 - **Inertia**: Heavier objects resist changes in motion more
 
+#### Angular Momentum Example
+
+```typescript
+// Create a tumbling block that rotates when it falls and collides
+const tumblingBlock = world.createEntity();
+world.addComponent(
+  tumblingBlock,
+  new VoxelData(octree, true, MeshAlgorithm.CUBIC)
+);
+world.addComponent(tumblingBlock, new Transform(vec3.fromValues(5, 20, 5)));
+world.addComponent(
+  tumblingBlock,
+  new RigidBody({
+    mass: 2,
+    friction: 0.3,
+    restitution: 0.5,
+    enableRotation: true, // ✨ Enable rotation!
+    angularDamping: 0.2, // Slow down rotation over time
+  })
+);
+
+// Without enableRotation, blocks stay upright
+// With enableRotation, blocks tumble and spin realistically!
+```
+
 #### Swapping Physics Engines
 
 To switch from Rapier to another physics engine:
@@ -1032,6 +1073,11 @@ this.physicsAdapter = new CannonAdapter();
 - **Mass-based physics**: Heavier objects have more inertia in collisions
 - **Force and impulse application** (F = ma correctly applied)
 - **Torque** for angular forces (rotation)
+- **Angular momentum**: Objects can rotate and tumble realistically
+  - Toggle via `enableRotation` property
+  - Full 3D rotation during collisions
+  - Configurable angular damping
+  - Rendered with proper rotation transforms
 - **Static and dynamic bodies**
 - **Friction** for realistic surface interaction (0-1 range)
 - **Restitution** (bounciness) for elastic collisions (0-1 range)

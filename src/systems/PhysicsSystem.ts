@@ -102,11 +102,13 @@ export class PhysicsSystem extends System {
           // Create physics body at transform position
           const handle = this.physicsAdapter.createRigidBody({
             position: transform.position,
+            rotation: transform.rotation,
             velocity: velocity?.linear,
             mass: rigidBody.isStatic ? 0 : rigidBody.mass,
             friction: rigidBody.friction,
-            restitution: 0.3,
-            lockRotations: true,
+            restitution: rigidBody.restitution,
+            lockRotations: !rigidBody.enableRotation,
+            angularDamping: rigidBody.angularDamping,
           });
 
           // Add collider with offset to match voxel bounds center
@@ -138,11 +140,13 @@ export class PhysicsSystem extends System {
       // Create physics body
       const handle = this.physicsAdapter.createRigidBody({
         position: transform.position,
+        rotation: transform.rotation,
         velocity: velocity?.linear,
         mass: rigidBody.isStatic ? 0 : rigidBody.mass,
         friction: rigidBody.friction,
-        restitution: 0.3,
-        lockRotations: true,
+        restitution: rigidBody.restitution,
+        lockRotations: !rigidBody.enableRotation,
+        angularDamping: rigidBody.angularDamping,
       });
 
       this.physicsAdapter.addCollider(handle, {
@@ -191,10 +195,17 @@ export class PhysicsSystem extends System {
       const physicsBody = this.world.getComponent(entity, PhysicsBody)!;
       const transform = this.world.getComponent(entity, Transform)!;
       const velocity = this.world.getComponent(entity, Velocity);
+      const rigidBody = this.world.getComponent(entity, RigidBody);
 
-      // Update transform from physics
+      // Update position from physics
       const position = this.physicsAdapter.getPosition(physicsBody.handle);
       vec3.copy(transform.position, position);
+
+      // Update rotation from physics if enabled
+      if (rigidBody?.enableRotation) {
+        const rotation = this.physicsAdapter.getRotation(physicsBody.handle);
+        vec3.copy(transform.rotation, rotation);
+      }
 
       // Update velocity if component exists
       if (velocity) {
