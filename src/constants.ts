@@ -37,6 +37,7 @@ export const CAMERA = {
   FAR: 1000,
   FOLLOW_DISTANCE: 10,
   FOLLOW_HEIGHT_OFFSET: 5,
+  ORTHO_SIZE: 20, // Half-width/height for orthographic projection
 } as const;
 
 /**

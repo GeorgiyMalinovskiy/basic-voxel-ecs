@@ -2,6 +2,21 @@ import { mat4, vec3 } from "gl-matrix";
 import { CAMERA } from "@/constants";
 
 /**
+ * Camera projection mode
+ */
+export enum CameraMode {
+  /**
+   * Perspective projection (default) - objects get smaller with distance
+   */
+  PERSPECTIVE = "perspective",
+
+  /**
+   * Orthographic projection - parallel projection, no perspective distortion
+   */
+  ORTHOGRAPHIC = "orthographic",
+}
+
+/**
  * Simple camera for 3D rendering
  */
 export class Camera {
@@ -12,6 +27,8 @@ export class Camera {
   private aspect: number;
   private near: number;
   private far: number;
+  private orthoSize: number;
+  private mode: CameraMode;
 
   private viewMatrix: mat4;
   private projectionMatrix: mat4;
@@ -21,10 +38,12 @@ export class Camera {
   constructor(
     position = vec3.fromValues(0, 10, 20),
     target = vec3.fromValues(16, 0, 16),
+    mode = CameraMode.PERSPECTIVE,
     fovy = CAMERA.FOV,
     aspect = 1.6,
     near = CAMERA.NEAR,
-    far = CAMERA.FAR
+    far = CAMERA.FAR,
+    orthoSize = CAMERA.ORTHO_SIZE
   ) {
     this.position = position;
     this.target = target;
@@ -33,6 +52,8 @@ export class Camera {
     this.aspect = aspect;
     this.near = near;
     this.far = far;
+    this.orthoSize = orthoSize;
+    this.mode = mode;
 
     this.viewMatrix = mat4.create();
     this.projectionMatrix = mat4.create();
@@ -54,6 +75,24 @@ export class Camera {
   setAspect(aspect: number): void {
     this.aspect = aspect;
     this.isDirty = true;
+  }
+
+  getMode(): CameraMode {
+    return this.mode;
+  }
+
+  setMode(mode: CameraMode): void {
+    if (this.mode !== mode) {
+      this.mode = mode;
+      this.isDirty = true;
+    }
+  }
+
+  setOrthoSize(size: number): void {
+    this.orthoSize = size;
+    if (this.mode === CameraMode.ORTHOGRAPHIC) {
+      this.isDirty = true;
+    }
   }
 
   getPosition(): vec3 {
@@ -79,13 +118,46 @@ export class Camera {
     if (!this.isDirty) return;
 
     mat4.lookAt(this.viewMatrix, this.position, this.target, this.up);
-    mat4.perspective(
-      this.projectionMatrix,
-      this.fovy,
-      this.aspect,
-      this.near,
-      this.far
-    );
+
+    if (this.mode === CameraMode.PERSPECTIVE) {
+      mat4.perspective(
+        this.projectionMatrix,
+        this.fovy,
+        this.aspect,
+        this.near,
+        this.far
+      );
+
+      // WebGPU depth range fix (0-1 instead of -1 to 1)
+      const depthFix = mat4.create();
+      mat4.identity(depthFix);
+      depthFix[10] = 0.5;
+      depthFix[14] = 0.5;
+      mat4.multiply(this.projectionMatrix, depthFix, this.projectionMatrix);
+    } else {
+      // Orthographic projection
+      const halfWidth = this.orthoSize * this.aspect;
+      const halfHeight = this.orthoSize;
+
+      mat4.ortho(
+        this.projectionMatrix,
+        -halfWidth,
+        halfWidth,
+        -halfHeight,
+        halfHeight,
+        this.near,
+        this.far
+      );
+
+      // WebGPU uses 0-1 depth range, OpenGL uses -1 to 1
+      // Need to transform: z_webgpu = (z_opengl + 1) / 2
+      const depthFix = mat4.create();
+      mat4.identity(depthFix);
+      depthFix[10] = 0.5; // Scale z by 0.5
+      depthFix[14] = 0.5; // Translate z by 0.5
+      mat4.multiply(this.projectionMatrix, depthFix, this.projectionMatrix);
+    }
+
     mat4.multiply(
       this.viewProjectionMatrix,
       this.projectionMatrix,

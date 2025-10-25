@@ -13,15 +13,23 @@ import { GameEngine } from "@/engine";
 import { World } from "@/ecs";
 import { Octree } from "@/voxel";
 import { Vec3 } from "@/voxel/types";
+import { CameraMode } from "@/renderer/Camera";
+
 export class ApiTestScene {
   protected world: World;
+
   constructor(engine: GameEngine) {
     this.world = engine.getWorld();
+    const camera = engine.getCamera();
+
+    // Set up orthographic camera
+    camera.setMode(CameraMode.ORTHOGRAPHIC);
+    // orthoSize is HALF-height of the viewing volume
+    // Scene is 10x10, so need at least 10-15 to see it properly
+    camera.setOrthoSize(20); // Show ~40 units vertically
   }
 
   public setup(): void {
-    console.log("Setting up api test scene...");
-
     this.createTerrain();
 
     // Demonstrate different masses
@@ -43,17 +51,17 @@ export class ApiTestScene {
     // Add Player component for movement control
     this.world.addComponent(player, new Player(3, 0.002));
 
-    // Add CameraTarget component to make camera follow this entity
+    // Add CameraTarget component - orthographic camera follows player
     this.world.addComponent(
       player,
       new CameraTarget({
-        followDistance: 10, // Distance behind player
-        heightOffset: 2, // Height above player
-        // lookAtOffset auto-calculated from voxel mesh center
+        followDistance: 20,
+        heightOffset: 15,
+        lookAtOffset: vec3.fromValues(0, 0.5, 0),
       })
     );
 
-    this.world.addComponent(player, new Transform(vec3.fromValues(5, 1, 5)));
+    this.world.addComponent(player, new Transform(vec3.fromValues(5, 0, 5)));
     this.world.addComponent(player, new Velocity(vec3.fromValues(0, 0, 0)));
     this.world.addComponent(player, new RigidBody({ mass: 1, friction: 0.1 }));
   }

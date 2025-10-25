@@ -53,6 +53,9 @@ export class GameEngine {
     this.renderer = new WebGPURenderer(canvas);
     this.camera = new Camera();
 
+    // Set initial camera aspect ratio
+    this.camera.setAspect(this.canvas.width / this.canvas.height);
+
     // Create physics adapter
     this.physicsAdapter = new RapierAdapter();
 

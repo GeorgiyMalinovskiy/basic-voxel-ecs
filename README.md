@@ -9,6 +9,7 @@ A modern, fully Entity Component System (ECS) based voxel game engine built with
   - **Cubic Voxel Mesher** - Minecraft-style blocks with face culling
   - **Marching Cubes** - Smooth, organic surfaces for caves, characters, and natural formations
 - **WebGPU Rendering** - Modern graphics API for high-performance rendering
+- **Flexible Camera System** - Perspective and orthographic projection modes
 - **Sparse Voxel Octree** - Efficient memory usage for large voxel worlds
 - **Advanced Physics** - Rapier3D integration with collision detection, angular momentum, mass-based dynamics
 - **Multiplayer Networking** - WebSocket-based entity replication with server-authoritative physics
@@ -1481,13 +1482,49 @@ await engine.enableNetworking(networkManager, config);
 
 ### Camera
 
+The camera supports both perspective and orthographic projection modes.
+
+#### Camera Mode
+
+```typescript
+import { Camera, CameraMode } from "@/renderer";
+
+// Create camera with perspective mode (default)
+const camera = new Camera(
+  vec3.fromValues(0, 10, 20), // position
+  vec3.fromValues(16, 0, 16), // target
+  CameraMode.PERSPECTIVE // projection mode
+);
+
+// Create camera with orthographic mode
+const orthoCamera = new Camera(
+  vec3.fromValues(0, 10, 20),
+  vec3.fromValues(16, 0, 16),
+  CameraMode.ORTHOGRAPHIC
+);
+
+// Change mode at runtime
+camera.setMode(CameraMode.ORTHOGRAPHIC);
+
+// Adjust orthographic size (half-width/height)
+camera.setOrthoSize(25); // Default is 20
+```
+
+**CameraMode enum:**
+
+- `CameraMode.PERSPECTIVE` - Objects get smaller with distance (default, realistic 3D)
+- `CameraMode.ORTHOGRAPHIC` - Parallel projection, no perspective distortion (isometric-style)
+
+#### Camera Constants
+
 ```typescript
 export const CAMERA = {
-  FOV: Math.PI / 4, // 45 degrees
+  FOV: Math.PI / 4, // 45 degrees (perspective only)
   NEAR: 0.1, // Near clipping plane
   FAR: 1000, // Far clipping plane
   FOLLOW_DISTANCE: 10, // Distance behind player
   FOLLOW_HEIGHT_OFFSET: 5, // Height above player
+  ORTHO_SIZE: 20, // Half-width/height for orthographic projection
 };
 ```
 
@@ -1564,6 +1601,9 @@ const world = engine.getWorld();
 
 // Get camera
 const camera = engine.getCamera();
+
+// Change camera mode (default is PERSPECTIVE)
+camera.setMode(CameraMode.ORTHOGRAPHIC);
 
 // Get stats
 const stats = engine.getStats();
