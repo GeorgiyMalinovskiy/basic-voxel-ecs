@@ -3,7 +3,12 @@ import { vec3, mat4, quat } from "gl-matrix";
 import { World } from "@/ecs";
 import { Camera, WebGPURenderer } from "@/renderer";
 import { Mesh } from "@/voxel";
-import { PhysicsSystem, InputSystem, MeshGenerationSystem } from "@/systems";
+import {
+  PhysicsSystem,
+  InputSystem,
+  MeshGenerationSystem,
+  NetworkSystem,
+} from "@/systems";
 import {
   Transform,
   Player,
@@ -13,6 +18,8 @@ import {
 } from "@/components";
 import { RapierAdapter } from "@/physics";
 import { CAMERA, PLAYER_MESH, MESH_GEN, PHYSICS } from "@/constants";
+import type { INetworkManager } from "@/network";
+import type { NetworkConfig } from "@/network";
 
 /**
  * Main game engine - FULLY ECS-based voxel game engine
@@ -29,8 +36,16 @@ export class GameEngine {
   private meshGenSystem: MeshGenerationSystem;
   private physicsAdapter: RapierAdapter;
 
+  private networkSystem: NetworkSystem | null = null;
+  private networkManager: INetworkManager | null = null;
+
   private isRunning = false;
   private lastTime = 0;
+
+  // Network configuration
+  public isNetworkServer = false;
+  public isNetworkClient = false;
+  public isNetworkClientHost = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -73,6 +88,39 @@ export class GameEngine {
     await this.renderer.initialize();
 
     console.log("Game engine initialized");
+  }
+
+  /**
+   * Enable networking
+   * @param networkManager The network manager implementation to use
+   * @param config Network configuration
+   * @param serverAddress Server address for clients (e.g., "ws://localhost:8080")
+   */
+  async enableNetworking(
+    networkManager: INetworkManager,
+    config: NetworkConfig,
+    serverAddress?: string
+  ): Promise<void> {
+    this.networkManager = networkManager;
+    this.isNetworkServer = config.isServer;
+    this.isNetworkClient = !config.isServer;
+    this.isNetworkClientHost = config.isHost;
+
+    // Initialize network manager
+    await this.networkManager.initialize(config);
+
+    // Create and add network system
+    this.networkSystem = new NetworkSystem(this.networkManager);
+    this.world.addSystem(this.networkSystem);
+
+    // Start networking (connect or listen)
+    await this.networkManager.start(serverAddress);
+
+    console.log(
+      `Networking enabled - ${config.isServer ? "Server" : "Client"}${
+        config.isHost ? " (Client-Host)" : ""
+      }`
+    );
   }
 
   /**

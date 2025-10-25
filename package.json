@@ -11,10 +11,12 @@
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.19.2",
     "@webgpu/types": "^0.1.40",
-    "gl-matrix": "^3.4.3"
+    "gl-matrix": "^3.4.3",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
+    "@types/ws": "^8.5.13",
     "typescript": "^5.3.3",
     "vite": "^5.0.10"
   }
